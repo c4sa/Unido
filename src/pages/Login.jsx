@@ -155,9 +155,21 @@ export default function Login() {
 
             {/* Action Links */}
             <div className="flex justify-between text-sm">
-              <span className="hover:underline cursor-pointer" style={{ color: '#0064b0' }}>Forgot password?</span>
+              <span 
+                className="hover:underline cursor-pointer" 
+                style={{ color: '#0064b0' }}
+                onClick={() => navigate('/forgot-password')}
+              >
+                Forgot password?
+              </span>
               <span className="text-gray-600">
-                Need an account? <span className="hover:underline cursor-pointer" style={{ color: '#0064b0' }}>Check</span>
+                Need an account? <span 
+                  className="hover:underline cursor-pointer" 
+                  style={{ color: '#0064b0' }}
+                  onClick={() => navigate('/verify-code')}
+                >
+                  Check
+                </span>
               </span>
               </div>
             </CardContent>

@@ -1,5 +1,9 @@
 import Layout from "./Layout.jsx";
 import Login from "./Login";
+import ForgotPassword from "./ForgotPassword";
+import VerifyOTP from "./VerifyOTP";
+import ResetPassword from "./ResetPassword";
+import VerifyCode from "./VerifyCode";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 import Dashboard from "./Dashboard";
@@ -66,9 +70,25 @@ function PagesContent() {
     const location = useLocation();
     const currentPage = _getCurrentPage(location.pathname);
     
-    // Public route: Login page
+    // Public routes: Login, Forgot Password, Verify OTP, Reset Password
     if (location.pathname === '/login') {
         return <Login />;
+    }
+    
+    if (location.pathname === '/forgot-password') {
+        return <ForgotPassword />;
+    }
+    
+    if (location.pathname === '/verify-otp') {
+        return <VerifyOTP />;
+    }
+    
+    if (location.pathname === '/reset-password') {
+        return <ResetPassword />;
+    }
+    
+    if (location.pathname === '/verify-code') {
+        return <VerifyCode />;
     }
     
     // All other routes are protected
