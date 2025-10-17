@@ -1,0 +1,1211 @@
+8. Complete User Flows
+8.1 Complete User Journey - From Registration to Meeting Completion
+┌─────────────────────────────────────────────────────────────┐
+│         END-TO-END USER FLOW: COMPLETE JOURNEY              │
+└─────────────────────────────────────────────────────────────┘
+
+SCENARIO:
+John (USA Delegate) wants to meet Maria (France Delegate) to discuss
+climate policy cooperation.
+
+══════════════════════════════════════════════════════════════
+STEP 1: REGISTRATION & AUTHENTICATION
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 1.1 John visits: https://uniconnect.base44.com             │
+│         ↓                                                   │
+│ 1.2 Sees login page (handled by Base44)                    │
+│     Note: Login page cannot be customized in Base44        │
+│         ↓                                                   │
+│ 1.3 Clicks "Sign in with Google"                           │
+│         ↓                                                   │
+│ 1.4 Redirected to Google OAuth                             │
+│     - Selects Google account                               │
+│     - Grants permissions to UNIConnect                     │
+│         ↓                                                   │
+│ 1.5 Google returns authentication token                    │
+│         ↓                                                   │
+│ 1.6 Base44 platform:                                       │
+│     - Validates token                                      │
+│     - Creates User record if first time:                   │
+│       {                                                     │
+│         "id": "user_abc123",                               │
+│         "email": "john.doe@state.gov",                     │
+│         "full_name": "John Doe",                           │
+│         "role": "user",                                    │
+│         "consent_given": false,          // ← Important!   │
+│         "profile_completed": false,      // ← Important!   │
+│         "created_date": "2024-01-15T10:00:00Z"            │
+│       }                                                     │
+│     - Creates session                                      │
+│         ↓                                                   │
+│ 1.7 User redirected to: /dashboard                         │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 2: FIRST-TIME DASHBOARD EXPERIENCE
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 2.1 Dashboard loads                                         │
+│     useEffect → loadDashboardData() executes               │
+│         ↓                                                   │
+│ 2.2 const user = await User.me();                          │
+│     Returns:                                                │
+│     {                                                       │
+│       "id": "user_abc123",                                 │
+│       "email": "john.doe@state.gov",                       │
+│       "full_name": "John Doe",                             │
+│       "consent_given": false,        // ❌ Not given       │
+│       "profile_completed": false,    // ❌ Not completed   │
+│       ...                                                   │
+│     }                                                       │
+│         ↓                                                   │
+│ 2.3 Dashboard shows TWO alert banners:                     │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ ⚠️ CONSENT REQUIRED                               │  │
+│     │ Please complete the data protection consent       │  │
+│     │ process to access platform features.              │  │
+│     │ [Complete Now →]                                  │  │
+│     └──────────────────────────────────────────────────┘  │
+│                                                             │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ ⚠️ PROFILE INCOMPLETE                             │  │
+│     │ Complete your profile to access matchmaking       │  │
+│     │ features. [Complete Profile →]                    │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 2.4 Statistics show:                                       │
+│     - Pending Requests: 0                                  │
+│     - Accepted Meetings: 0                                 │
+│     - Unread Messages: 0                                   │
+│     - Upcoming Bookings: 0                                 │
+│         ↓                                                   │
+│ 2.5 John clicks "Complete Now →"                           │
+│     → Navigates to /profile                                │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 3: PROFILE COMPLETION
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 3.1 Profile page loads                                      │
+│     Shows sections:                                         │
+│     1. Data Protection & Consent (unchecked)               │
+│     2. Basic Information (mostly empty)                    │
+│     3. Topical Interests (empty)                           │
+│     4. Geographical Interests (empty)                      │
+│     5. Notification Preferences (all enabled by default)   │
+│     6. Privacy Preferences (show profile: ON)              │
+│         ↓                                                   │
+│ 3.2 SECTION 1: John reads privacy notice and checks:       │
+│     ☑️ "I consent to the processing of my data for         │
+│        platform functionality and professional networking" │
+│         ↓                                                   │
+│ 3.3 SECTION 2: John fills basic information:               │
+│     - Full Name: "John Doe" (read-only, from Google)      │
+│     - Email: "john.doe@state.gov" (read-only)             │
+│     - Representation Type: "Government" ▼                  │
+│     - Country: "United States"                             │
+│     - Job Title: "Director of Climate Policy"             │
+│     - Organization: "U.S. Department of State"            │
+│     - Industry Sector: "Climate & Environment"            │
+│     - LinkedIn: "https://linkedin.com/in/johndoe"         │
+│     - Biography: "Experienced climate policy director...  │
+│       15 years in international climate negotiations..."  │
+│       (500 characters)                                     │
+│         ↓                                                   │
+│ 3.4 SECTION 3: John adds topical interests:                │
+│     Clicks quick-add buttons:                              │
+│     - "Climate Policy" → Priority: High                    │
+│     - "Energy Transition" → Priority: High                 │
+│     - "International Cooperation" → Priority: Medium       │
+│     - "Trade Relations" → Priority: Low                    │
+│                                                             │
+│     Final state:                                            │
+│     topical_interests: [                                   │
+│       { topic: "Climate Policy", priority: "high" },       │
+│       { topic: "Energy Transition", priority: "high" },    │
+│       { topic: "International Cooperation", priority: "medium" },│
+│       { topic: "Trade Relations", priority: "low" }        │
+│     ]                                                       │
+│         ↓                                                   │
+│ 3.5 SECTION 4: John adds geographical interests:           │
+│     - "Europe" → Priority: High                            │
+│     - "Asia-Pacific" → Priority: Medium                    │
+│     - "Africa" → Priority: Low                             │
+│                                                             │
+│     Final state:                                            │
+│     geographical_interests: [                              │
+│       { region: "Europe", priority: "high" },              │
+│       { region: "Asia-Pacific", priority: "medium" },      │
+│       { region: "Africa", priority: "low" }                │
+│     ]                                                       │
+│         ↓                                                   │
+│ 3.6 SECTION 5: Notification preferences (keeps defaults):  │
+│     ✅ New Meeting Request: ON                             │
+│     ✅ Request Status Update: ON                           │
+│     ✅ New Chat Message: ON                                │
+│     ✅ Booking Confirmed: ON                               │
+│         ↓                                                   │
+│ 3.7 SECTION 6: Privacy (keeps default):                    │
+│     ☐ Hide Profile from Directory: OFF                     │
+│         ↓                                                   │
+│ 3.8 John clicks "Save Profile" button                      │
+│         ↓                                                   │
+│ 3.9 handleSave() function executes:                        │
+│     const profileComplete = !!(                            │
+│       formData.representation_type &&                      │
+│       formData.country &&                                  │
+│       formData.job_title &&                                │
+│       formData.organization &&                             │
+│       formData.industry_sector &&                          │
+│       formData.biography &&                                │
+│       formData.topical_interests?.length > 0 &&            │
+│       formData.geographical_interests?.length > 0          │
+│     );                                                      │
+│     // profileComplete = true ✅                           │
+│         ↓                                                   │
+│ 3.10 await User.updateMyUserData({                         │
+│       ...formData,                                         │
+│       consent_given: true,                                 │
+│       profile_completed: true                              │
+│     });                                                     │
+│         ↓                                                   │
+│ 3.11 Database updated:                                     │
+│      User record now has:                                  │
+│      - consent_given: true                                 │
+│      - profile_completed: true                             │
+│      - All profile fields populated                        │
+│         ↓                                                   │
+│ 3.12 Success! Profile badge shows: "✓ Profile Complete"    │
+│         ↓                                                   │
+│ 3.13 John navigates back to Dashboard                      │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 4: BROWSING DELEGATES
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 4.1 John clicks "Browse Users" from Dashboard              │
+│     → Navigates to /delegates                              │
+│         ↓                                                   │
+│ 4.2 Delegates page loads                                    │
+│     loadData() executes:                                   │
+│         ↓                                                   │
+│ 4.3 const [user, allUsers] = await Promise.all([           │
+│       User.me(),                                           │
+│       User.list()                                          │
+│     ]);                                                     │
+│         ↓                                                   │
+│ 4.4 Filter users:                                          │
+│     const availableUsers = allUsers.filter(u =>            │
+│       u.id !== user.id &&           // Not self           │
+│       u.profile_completed &&        // Profile complete    │
+│       u.consent_given &&            // Consent given       │
+│       !u.is_profile_hidden          // Not hidden          │
+│     );                                                      │
+│     // Returns 50 users                                    │
+│         ↓                                                   │
+│ 4.5 John sees grid of user cards:                          │
+│     Each card shows:                                       │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ [M] Maria Dubois                                  │  │
+│     │ Climate Policy Advisor                            │  │
+│     │                                                    │  │
+│     │ 🏢 French Ministry of Environment                 │  │
+│     │ 🌍 France                                          │  │
+│     │                                                    │  │
+│     │ [government] [Climate & Sustainability]           │  │
+│     │                                                    │  │
+│     │ "Experienced advisor specializing in EU climate   │  │
+│     │  policy and international negotiations..."        │  │
+│     │                                                    │  │
+│     │ Interests: Climate Policy, Energy Policy,         │  │
+│     │ International Cooperation +2 more                 │  │
+│     │                                                    │  │
+│     │ [🔗 LinkedIn] [📧 Request Meeting]                │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 4.6 John searches: "climate policy france"                 │
+│     filterUsers() executes:                                │
+│     - Filters by search term                               │
+│     - Maria's card appears at top (perfect match)          │
+│         ↓                                                   │
+│ 4.7 John filters by: "Government" type                     │
+│     - Further refined results                              │
+│     - Maria still visible                                  │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 5: SENDING MEETING REQUEST
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 5.1 John clicks "Request Meeting" on Maria's card          │
+│         ↓                                                   │
+│ 5.2 Dialog opens with form:                                │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Request Meeting with Maria Dubois                 │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ Proposed Topic: *                                 │  │
+│     │ [________________________]                        │  │
+│     │                                                    │  │
+│     │ Duration (minutes): [45 minutes ▼]               │  │
+│     │ Options: 30, 45, 60, 90                           │  │
+│     │                                                    │  │
+│     │ Personal Message:                                 │  │
+│     │ [_____________________________]                   │  │
+│     │ [_____________________________]                   │  │
+│     │ [_____________________________]                   │  │
+│     │                                                    │  │
+│     │ [Cancel] [Send Request]                           │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 5.3 John fills form:                                       │
+│     - Topic: "U.S.-France Climate Cooperation Framework"   │
+│     - Duration: 60 minutes                                 │
+│     - Message: "Dear Maria, I would like to discuss        │
+│       potential collaboration opportunities between the US │
+│       and France on climate policy initiatives. I believe  │
+│       we have strong alignment on renewable energy goals." │
+│         ↓                                                   │
+│ 5.4 John clicks "Send Request"                             │
+│         ↓                                                   │
+│ 5.5 sendMeetingRequest() function executes:                │
+│     Step 1: Generate meeting code                          │
+│     const meetingCode =                                    │
+│       Math.random().toString(36)                           │
+│         .substring(2, 10).toUpperCase();                   │
+│     // Result: "A7K9M2N4"                                  │
+│         ↓                                                   │
+│     Step 2: Create meeting request                         │
+│     const newRequest = await MeetingRequest.create({       │
+│       requester_id: "user_abc123",     // John's ID        │
+│       recipient_ids: ["user_xyz789"],  // Maria's ID       │
+│       meeting_type: "single",                              │
+│       meeting_code: "A7K9M2N4",                            │
+│       personal_message: "Dear Maria, I would like...",     │
+│       proposed_topic: "U.S.-France Climate Cooperation...",│
+│       proposed_duration: 60,                               │
+│       status: "pending"                                    │
+│     });                                                     │
+│     // Returns: { id: "meeting_001", ... }                 │
+│         ↓                                                   │
+│     Step 3: Check Maria's notification preferences         │
+│     const recipient = await User.get("user_xyz789");       │
+│     if (recipient.notification_preferences                 │
+│         ?.new_meeting_request !== false) {                 │
+│       // Preference enabled, send notification             │
+│         ↓                                                   │
+│       Step 4: Create notification                          │
+│       await Notification.create({                          │
+│         user_id: "user_xyz789",      // Maria's ID         │
+│         type: "new_meeting_request",                       │
+│         title: "New Meeting Request",                      │
+│         body: "You have received a new meeting request "+  │
+│               "from John Doe. Meeting Code: A7K9M2N4",     │
+│         link: "/meetings",                                 │
+│         related_entity_id: "meeting_001",                  │
+│         is_read: false                                     │
+│       });                                                   │
+│     }                                                       │
+│         ↓                                                   │
+│ 5.6 Dialog closes, success message appears                 │
+│         ↓                                                   │
+│ 5.7 John sees confirmation:                                │
+│     "Meeting request sent to Maria Dubois"                 │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 6: MARIA RECEIVES NOTIFICATION
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 6.1 Maria is browsing her dashboard                        │
+│     NotificationBell component is polling every 10 seconds │
+│         ↓                                                   │
+│ 6.2 Next poll executes (10 seconds after notification      │
+│     was created):                                          │
+│     const allNotifications = await Notification.filter(    │
+│       { user_id: "user_xyz789" },  // Maria's ID           │
+│       '-created_date',                                     │
+│       50                                                    │
+│     );                                                      │
+│     // Returns: [{ id: "notif_001", is_read: false, ... }] │
+│         ↓                                                   │
+│ 6.3 NotificationBell updates:                              │
+│     - Badge appears with "1"                               │
+│     - Bell icon shows red badge                            │
+│         ↓                                                   │
+│ 6.4 Maria sees: 🔔[1]                                       │
+│         ↓                                                   │
+│ 6.5 Maria clicks bell icon                                 │
+│         ↓                                                   │
+│ 6.6 Popover opens showing:                                 │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Notifications              [✓ Mark all read] [X] │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ 📅 New Meeting Request              🔵 unread    │  │
+│     │ You have received a new meeting request from     │  │
+│     │ John Doe. Meeting Code: A7K9M2N4                 │  │
+│     │ Jan 15, 10:05 AM                                 │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 6.7 Maria clicks the notification                          │
+│         ↓                                                   │
+│ 6.8 handleNotificationClick() executes:                    │
+│     - Marks notification as read:                          │
+│       await Notification.update("notif_001", {             │
+│         is_read: true                                      │
+│       });                                                   │
+│     - Navigates to: /meetings                              │
+│     - Closes popover                                       │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 7: MARIA REVIEWS AND ACCEPTS REQUEST
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 7.1 Maria lands on Meetings page                           │
+│     Default tab: "Pending Approval"                        │
+│         ↓                                                   │
+│ 7.2 loadData() executes:                                   │
+│     const [allUsers, allRequests, allMessages, allBookings]│
+│       = await Promise.all([...]);                          │
+│         ↓                                                   │
+│ 7.3 Filter pending requests:                               │
+│     const pending = allRequests.filter(req =>              │
+│       (req.recipient_ids || []).includes("user_xyz789") && │
+│       req.status === 'pending'                             │
+│     );                                                      │
+│     // Returns: [{ id: "meeting_001", ... }]               │
+│         ↓                                                   │
+│ 7.4 Maria sees request card:                               │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ ⚠️ Action Required                                 │  │
+│     │ You have 1 meeting request awaiting your response │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ [JD] John Doe                                     │  │
+│     │ Director of Climate Policy at U.S. Dept of State │  │
+│     │ 🌍 United States                                   │  │
+│     │                                                    │  │
+│     │ Received Jan 15, 2024 at 10:05 AM                │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ 📅 Proposed Topic:                                │  │
+│     │ U.S.-France Climate Cooperation Framework         │  │
+│     │                                                    │  │
+│     │ ⏱️ Duration: 60 minutes                            │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ 💬 Personal Message:                              │  │
+│     │ "Dear Maria, I would like to discuss potential    │  │
+│     │  collaboration opportunities between the US and   │  │
+│     │  France on climate policy initiatives. I believe  │  │
+│     │  we have strong alignment on renewable energy..." │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ [❌ Decline Request]  [✅ Accept Meeting]          │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 7.5 Maria reads the request details                        │
+│     - Reviews John's profile                               │
+│     - Sees alignment in interests                          │
+│     - Decides to accept                                    │
+│         ↓                                                   │
+│ 7.6 Maria clicks "Accept Meeting" button                   │
+│         ↓                                                   │
+│ 7.7 handleRequestResponse("meeting_001", "accepted")       │
+│     executes:                                              │
+│         ↓                                                   │
+│     Step 1: Update meeting status                          │
+│     await MeetingRequest.update("meeting_001", {           │
+│       status: "accepted"                                   │
+│     });                                                     │
+│         ↓                                                   │
+│     Step 2: Get requester info                             │
+│     const request = await MeetingRequest.get("meeting_001");│
+│     const requester = await User.get("user_abc123");       │
+│         ↓                                                   │
+│     Step 3: Check notification preferences                 │
+│     if (requester.notification_preferences                 │
+│         ?.request_status_update !== false) {               │
+│         ↓                                                   │
+│       Step 4: Notify John                                  │
+│       await Notification.create({                          │
+│         user_id: "user_abc123",     // John's ID           │
+│         type: "request_accepted",                          │
+│         title: "Meeting Request Accepted",                 │
+│         body: "Maria Dubois has accepted your meeting "+   │
+│               "request regarding 'U.S.-France Climate "+   │
+│               "Cooperation Framework'.",                   │
+│         link: "/meetings",                                 │
+│         related_entity_id: "meeting_001",                  │
+│         is_read: false                                     │
+│       });                                                   │
+│     }                                                       │
+│         ↓                                                   │
+│ 7.8 Page refreshes, request moves to "Accepted Meetings" tab│
+│         ↓                                                   │
+│ 7.9 Success message appears:                               │
+│     "Meeting request accepted!"                            │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 8: JOHN RECEIVES ACCEPTANCE NOTIFICATION
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 8.1 John is on Dashboard                                    │
+│     NotificationBell polls (10 seconds later)              │
+│         ↓                                                   │
+│ 8.2 Fetches notifications:                                 │
+│     - New notification found                               │
+│     - Badge updates to: 🔔[1]                              │
+│         ↓                                                   │
+│ 8.3 John clicks bell                                       │
+│         ↓                                                   │
+│ 8.4 Sees notification:                                     │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ ✅ Meeting Request Accepted           🔵 unread   │  │
+│     │ Maria Dubois has accepted your meeting request    │  │
+│     │ regarding "U.S.-France Climate Cooperation..."    │  │
+│     │ Jan 15, 10:10 AM                                  │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 8.5 John clicks notification                               │
+│     → Navigates to /meetings                               │
+│     → Tab: "Accepted Meetings"                             │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 9: BOOKING A VENUE FOR THE MEETING
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 9.1 John sees accepted meeting card:                       │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ [MD] Meeting with Maria Dubois                    │  │
+│     │ Climate Policy Advisor at French Ministry...      │  │
+│     │                                                    │  │
+│     │ 📅 U.S.-France Climate Cooperation Framework      │  │
+│     │ ⏱️ 60 minutes                                      │  │
+│     │ Code: A7K9M2N4                                    │  │
+│     │ Confirmed Jan 15, 2024                            │  │
+│     │                                                    │  │
+│     │ [Modify] [💬 Chat] [📍 Book Venue] [Cancel]       │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 9.2 John clicks "Book Venue" button                        │
+│         ↓                                                   │
+│ 9.3 BookingDialog opens:                                   │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Book Venue for Meeting                            │  │
+│     │ U.S.-France Climate Cooperation Framework         │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ Step 1: Select Date                               │  │
+│     │ [📅 Jan 20, 2025]                                 │  │
+│     │                                                    │  │
+│     │ Step 2: Choose Room                               │  │
+│     │ [ ] Conference Room A (Small, Floor 2, Cap: 6)   │  │
+│     │     Equipment: WiFi, Projector                    │  │
+│     │ [ ] Conference Room B (Large, Floor 3, Cap: 12)  │  │
+│     │     Equipment: WiFi, Monitor, Coffee              │  │
+│     │ [●] Board Room (Small, Floor 5, Cap: 8)          │  │
+│     │     Equipment: WiFi, Projector, Monitor           │  │
+│     │                                                    │  │
+│     │ Step 3: Select Time                               │  │
+│     │ Meeting Duration: 60 minutes                      │  │
+│     │                                                    │  │
+│     │ Available time slots:                             │  │
+│     │ [ ] 09:00 - 10:00                                 │  │
+│     │ [ ] 09:30 - 10:30                                 │  │
+│     │ [ ] 10:00 - 11:00                                 │  │
+│     │ [●] 10:30 - 11:30  ✓ Available                    │  │
+│     │ [X] 11:00 - 12:00  (Booked)                       │  │
+│     │ [ ] 11:30 - 12:30                                 │  │
+│     │                                                    │  │
+│     │ [Cancel] [Confirm Booking]                        │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 9.4 John's selections:                                     │
+│     - Date: January 20, 2025                               │
+│     - Room: Board Room (Floor 5, Capacity 8)              │
+│     - Time: 10:30 - 11:30 (60 minutes)                    │
+│         ↓                                                   │
+│ 9.5 John clicks "Confirm Booking"                          │
+│         ↓                                                   │
+│ 9.6 handleBookingConfirm() executes:                       │
+│         ↓                                                   │
+│     Step 1: Get room details                               │
+│     const selectedRoom = await VenueRoom.get("room_003");  │
+│     // Returns: { name: "Board Room", floor: 5, ... }      │
+│         ↓                                                   │
+│     Step 2: Create datetime objects                        │
+│     const startDateTime = new Date("2025-01-20T10:30:00");│
+│     const endDateTime = new Date("2025-01-20T11:30:00");  │
+│         ↓                                                   │
+│     Step 3: Check availability                             │
+│     const conflictingBookings = allBookings.filter(b =>    │
+│       b.room_id === "room_003" &&                          │
+│       b.status === "active" &&                             │
+│       (                                                     │
+│         (startDateTime >= new Date(b.start_time) &&        │
+│          startDateTime < new Date(b.end_time)) ||          │
+│         (endDateTime > new Date(b.start_time) &&           │
+│          endDateTime <= new Date(b.end_time)) ||           │
+│         (startDateTime <= new Date(b.start_time) &&        │
+│          endDateTime >= new Date(b.end_time))              │
+│       )                                                     │
+│     );                                                      │
+│     // conflictingBookings.length === 0 ✓                  │
+│         ↓                                                   │
+│     Step 4: Create booking                                 │
+│     const newBooking = await VenueBooking.create({         │
+│       room_id: "room_003",                                 │
+│       room_name: "Board Room",                             │
+│       room_type: "small",                                  │
+│       capacity: 8,                                         │
+│       floor_level: 5,                                      │
+│       equipment: ["WiFi", "Projector", "Monitor"],         │
+│       booked_by: "user_abc123",     // John's ID           │
+│       booking_type: "meeting",                             │
+│       meeting_request_id: "meeting_001",                   │
+│       start_time: "2025-01-20T10:30:00Z",                 │
+│       end_time: "2025-01-20T11:30:00Z",                   │
+│       status: "active"                                     │
+│     });                                                     │
+│     // Returns: { id: "booking_001", ... }                 │
+│         ↓                                                   │
+│     Step 5: Link booking to meeting                        │
+│     await MeetingRequest.update("meeting_001", {           │
+│       venue_booking_id: "booking_001"                      │
+│     });                                                     │
+│         ↓                                                   │
+│     Step 6: Notify participants                            │
+│     const participants = [                                 │
+│       "user_abc123",  // John (booker)                     │
+│       "user_xyz789"   // Maria (other participant)         │
+│     ];                                                      │
+│                                                             │
+│     for (const participantId of participants) {            │
+│       if (participantId === "user_abc123") continue;       │
+│       // Don't notify the booker                           │
+│                                                             │
+│       const participant = await User.get(participantId);   │
+│       if (participant.notification_preferences             │
+│           ?.booking_confirmed !== false) {                 │
+│                                                             │
+│         await Notification.create({                        │
+│           user_id: participantId,  // Maria's ID           │
+│           type: "booking_confirmed",                       │
+│           title: "Venue Confirmed",                        │
+│           body: "Board Room has been booked for your "+    │
+│                 "meeting 'U.S.-France Climate Cooperation"+│
+│                 " Framework' at Jan 20, 10:30 AM",         │
+│           link: "/schedule",                               │
+│           related_entity_id: "booking_001",                │
+│           is_read: false                                   │
+│         });                                                 │
+│       }                                                     │
+│     }                                                       │
+│         ↓                                                   │
+│ 9.7 Dialog closes                                          │
+│         ↓                                                   │
+│ 9.8 Success message: "Venue booked successfully!"          │
+│         ↓                                                   │
+│ 9.9 Meeting card now shows:                                │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ [MD] Meeting with Maria Dubois                    │  │
+│     │ ...                                                │  │
+│     │ 📍 Booked: Board Room at 10:30 AM                 │  │
+│     │                                                    │  │
+│     │ [Modify] [💬 Chat] [✓ Venue Booked] [Cancel]      │  │
+│     └──────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 10: MARIA RECEIVES BOOKING NOTIFICATION
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 10.1 Maria's NotificationBell polls (10 seconds later)     │
+│         ↓                                                   │
+│ 10.2 New notification appears:                             │
+│      🔔[1]                                                  │
+│         ↓                                                   │
+│ 10.3 Maria clicks bell:                                    │
+│      ┌──────────────────────────────────────────────────┐ │
+│      │ 📍 Venue Confirmed                    🔵 unread  │ │
+│      │ Board Room has been booked for your meeting      │ │
+│      │ "U.S.-France Climate Cooperation Framework"      │ │
+│      │ at Jan 20, 10:30 AM                              │ │
+│      │ Jan 15, 10:15 AM                                 │ │
+│      └──────────────────────────────────────────────────┘ │
+│         ↓                                                   │
+│ 10.4 Maria clicks notification                             │
+│      → Navigates to /schedule                              │
+│         ↓                                                   │
+│ 10.5 Maria sees her schedule:                              │
+│      - January 20, 2025                                    │
+│      - 10:30 - 11:30: Board Room                           │
+│      - Meeting: U.S.-France Climate Cooperation Framework  │
+│      - With: John Doe                                      │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 11: CHAT COMMUNICATION (BEFORE MEETING)
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 11.1 John goes to Meetings page                            │
+│      Clicks "Chat" button on meeting card                  │
+│      → Navigates to /chat?request=meeting_001              │
+│         ↓                                                   │
+│ 11.2 Chat page loads with:                                 │
+│      - Left sidebar: Active conversations list             │
+│      - Main area: Chat with Maria Dubois                   │
+│      - Shows meeting details at top                        │
+│         ↓                                                   │
+│ 11.3 Chat Interface:                                       │
+│      ┌──────────────────────────────────────────────────┐ │
+│      │ ←  Maria Dubois                                  │ │
+│      │ Climate Policy Advisor                            │ │
+│      │ U.S.-France Climate Cooperation Framework        │ │
+│      ├──────────────────────────────────────────────────┤ │
+│      │ [Chat messages area - initially empty]           │ │
+│      │                                                   │ │
+│      │                                                   │ │
+│      │                                                   │ │
+│      ├──────────────────────────────────────────────────┤ │
+│      │ [Type your message...          ] [Send →]        │ │
+│      └──────────────────────────────────────────────────┘ │
+│         ↓                                                   │
+│ 11.4 John types message:                                   │
+│      "Hi Maria, looking forward to our meeting next week.  │
+│      I've prepared a brief on current U.S. climate policy  │
+│      initiatives. Would you like me to share it before     │
+│      we meet?"                                             │
+│         ↓                                                   │
+│ 11.5 John presses Enter or clicks Send                     │
+│         ↓                                                   │
+│ 11.6 sendMessage() executes:                               │
+│         ↓                                                   │
+│      Step 1: Identify recipient                            │
+│      const selectedMeeting = acceptedMeetings.find(        │
+│        m => m.id === "meeting_001"                         │
+│      );                                                     │
+│      const recipientId = selectedMeeting.requester_id ===  │
+│        currentUser.id                                      │
+│        ? selectedMeeting.recipient_ids[0]                  │
+│        : selectedMeeting.requester_id;                     │
+│      // recipientId = "user_xyz789" (Maria)                │
+│         ↓                                                   │
+│      Step 2: Create message                                │
+│      const newMsg = await ChatMessage.create({             │
+│        meeting_request_id: "meeting_001",                  │
+│        sender_id: "user_abc123",    // John                │
+│        recipient_id: "user_xyz789", // Maria               │
+│        message: "Hi Maria, looking forward to our...",     │
+│        message_type: "text",                               │
+│        read_status: false                                  │
+│      });                                                    │
+│      // Returns: { id: "message_001", ... }                │
+│         ↓                                                   │
+│      Step 3: Check notification preference                 │
+│      const recipient = await User.get("user_xyz789");      │
+│      if (recipient.notification_preferences                │
+│          ?.new_message !== false) {                        │
+│         ↓                                                   │
+│        Step 4: Create notification                         │
+│        await Notification.create({                         │
+│          user_id: "user_xyz789",                           │
+│          type: "new_message",                              │
+│          title: "New Message",                             │
+│          body: "You have a new message from John Doe.",    │
+│          link: "/chat?request=meeting_001",                │
+│          related_entity_id: "message_001",                 │
+│          is_read: false                                    │
+│        });                                                  │
+│      }                                                      │
+│         ↓                                                   │
+│ 11.7 Message appears in chat:                              │
+│      ┌──────────────────────────────────────────────────┐ │
+│      │                                                   │ │
+│      │                      Hi Maria, looking forward   │ │
+│      │                      to our meeting next week.   │ │
+│      │                      I've prepared a brief...    │ │
+│      │                                          10:20 ▐ │ │
+│      │                                                   │ │
+│      └──────────────────────────────────────────────────┘ │
+│         ↓                                                   │
+│ 11.8 Maria receives notification                           │
+│      Opens chat, reads message                             │
+│      Message marked as read automatically                  │
+│         ↓                                                   │
+│ 11.9 Maria replies:                                        │
+│      "Hello John! Yes, that would be wonderful. Please     │
+│      share the brief. I'll prepare some notes on EU        │
+│      initiatives as well."                                 │
+│         ↓                                                   │
+│ 11.10 Message exchange continues...                        │
+│       Chat history saved in database                       │
+│       Both users can see full conversation                 │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 12: VIEW SCHEDULE
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 12.1 John navigates to: /schedule                          │
+│      (My Schedule page)                                    │
+│         ↓                                                   │
+│ 12.2 Page loads showing calendar view                      │
+│         ↓                                                   │
+│ 12.3 loadData() executes:                                  │
+│      - Fetches all meetings where John is participant      │
+│      - Fetches all bookings for those meetings             │
+│      - Organizes by date                                   │
+│         ↓                                                   │
+│ 12.4 Calendar View:                                        │
+│      ┌──────────────────────────────────────────────────┐ │
+│      │ My Schedule                                       │ │
+│      │ [< January 2025 >]                                │ │
+│      ├──────────────────────────────────────────────────┤ │
+│      │                                                   │ │
+│      │ Monday, January 20, 2025                          │ │
+│      │                                                   │ │
+│      │ 10:30 AM - 11:30 AM                               │ │
+│      │ ┌────────────────────────────────────────────┐   │ │
+│      │ │ 📍 Board Room (Floor 5)                    │   │ │
+│      │ │ 👤 Meeting with Maria Dubois               │   │ │
+│      │ │ 📋 U.S.-France Climate Cooperation...      │   │ │
+│      │ │ ⏱️ 60 minutes                               │   │ │
+│      │ │ 🔧 WiFi, Projector, Monitor                │   │ │
+│      │ │                                             │   │ │
+│      │ │ [View Details] [Send Message] [Directions] │   │ │
+│      │ └────────────────────────────────────────────┘   │ │
+│      │                                                   │ │
+│      │ [No other meetings this week]                     │ │
+│      └──────────────────────────────────────────────────┘ │
+│         ↓                                                   │
+│ 12.5 John can:                                             │
+│      - Navigate between dates                              │
+│      - See all his booked meetings                         │
+│      - Click to view meeting details                       │
+│      - Quick access to chat                                │
+│      - Get directions to room                              │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 13: MEETING DAY - FINAL PREPARATION
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 13.1 January 20, 2025 - Morning                            │
+│         ↓                                                   │
+│ 13.2 Both John and Maria receive reminder:                 │
+│      - Dashboard shows: "Meeting in 2 hours"               │
+│      - Upcoming Schedule widget highlights meeting         │
+│         ↓                                                   │
+│ 13.3 John checks schedule:                                 │
+│      - Location: Board Room, Floor 5                       │
+│      - Time: 10:30 AM - 11:30 AM                           │
+│      - Duration: 60 minutes                                │
+│      - Equipment: WiFi, Projector, Monitor                 │
+│         ↓                                                   │
+│ 13.4 Maria sends final message in chat:                    │
+│      "See you at 10:30 in Board Room! I'll bring the EU    │
+│      policy documents."                                    │
+│         ↓                                                   │
+│ 13.5 John replies:                                         │
+│      "Perfect! See you soon."                              │
+│         ↓                                                   │
+│ 13.6 Both arrive at Board Room at 10:30 AM                 │
+│      Meeting takes place successfully!                     │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+COMPLETE USER JOURNEY SUMMARY
+══════════════════════════════════════════════════════════════
+
+Database Records Created:
+┌────────────────────────────────────────────────────────────┐
+│ 1. User (John): user_abc123                                │
+│    - Profile complete, consent given                       │
+│                                                             │
+│ 2. User (Maria): user_xyz789                               │
+│    - Profile complete, consent given                       │
+│                                                             │
+│ 3. MeetingRequest: meeting_001                             │
+│    - Requester: John                                       │
+│    - Recipient: Maria                                      │
+│    - Status: accepted                                      │
+│    - Code: A7K9M2N4                                        │
+│    - Topic: U.S.-France Climate Cooperation Framework      │
+│                                                             │
+│ 4. VenueBooking: booking_001                               │
+│    - Room: Board Room                                      │
+│    - Date: January 20, 2025                                │
+│    - Time: 10:30 - 11:30                                   │
+│    - Meeting: meeting_001                                  │
+│                                                             │
+│ 5. ChatMessage: message_001, message_002, ...              │
+│    - Conversation between John and Maria                   │
+│                                                             │
+│ 6. Notification: notif_001, notif_002, ...                 │
+│    - Various notifications sent to both users              │
+└────────────────────────────────────────────────────────────┘
+
+Total Time from Registration to Meeting Booked: ~15 minutes
+Total Notifications Sent: 5
+Total Database Operations: ~20
+8.2 Admin User Flow - Room Management
+┌─────────────────────────────────────────────────────────────┐
+│         ADMIN FLOW: VENUE ROOM MANAGEMENT                    │
+└─────────────────────────────────────────────────────────────┘
+
+SCENARIO:
+Sarah is an event organizer (admin) who needs to set up venue rooms
+for an upcoming international conference.
+
+══════════════════════════════════════════════════════════════
+STEP 1: ADMIN LOGIN
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 1.1 Sarah logs in with Google                              │
+│     Email: sarah.admin@conference.org                      │
+│         ↓                                                   │
+│ 1.2 Base44 checks user record:                             │
+│     {                                                       │
+│       "id": "admin_001",                                   │
+│       "email": "sarah.admin@conference.org",               │
+│       "full_name": "Sarah Admin",                          │
+│       "role": "admin"          // ← Admin role!            │
+│     }                                                       │
+│         ↓                                                   │
+│ 1.3 Sarah lands on Dashboard                               │
+│     Layout shows additional menu item:                     │
+│     - Admin Settings (only visible to admins)              │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 2: NAVIGATE TO ROOMS MANAGEMENT
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 2.1 Sarah clicks "Admin Settings" in sidebar               │
+│     → Navigates to /admin                                  │
+│         ↓                                                   │
+│ 2.2 Admin page shows tabs:                                 │
+│     - User Management                                      │
+│     - Venue Management ← Active                            │
+│     - Statistics & Analytics                               │
+│     - System Settings                                      │
+│         ↓                                                   │
+│ 2.3 Venue Management tab shows:                            │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Venue Management                                  │  │
+│     │ [+ Add New Room] [View Schedule]                  │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ Current Rooms: 5                                  │  │
+│     │ Active Bookings: 12                               │  │
+│     │ Available Rooms: 3                                │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 2.4 Shows list of existing rooms:                          │
+│     (Currently only 2 rooms exist)                         │
+│         ↓                                                   │
+│ 2.5 Sarah clicks [+ Add New Room]                          │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 3: ADD NEW ROOMS
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 3.1 RoomFormDialog opens:                                  │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Add New Room                                      │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ Room Name: *                                      │  │
+│     │ [________________________]                        │  │
+│     │                                                    │  │
+│     │ Room Type: *                                      │  │
+│     │ [Small ▼] (Small <10, Large ≥10)                 │  │
+│     │                                                    │  │
+│     │ Capacity: *                                       │  │
+│     │ [_____] people                                    │  │
+│     │                                                    │  │
+│     │ Floor: *                                          │  │
+│     │ [_____]                                           │  │
+│     │                                                    │  │
+│     │ Location: (Optional)                              │  │
+│     │ [________________________]                        │  │
+│     │                                                    │  │
+│     │ Contact: (Optional)                               │  │
+│     │ [________________________]                        │  │
+│     │                                                    │  │
+│     │ Description: (Optional)                           │  │
+│     │ [_____________________________]                   │  │
+│     │ [_____________________________]                   │  │
+│     │                                                    │  │
+│     │ Equipment:                                        │  │
+│     │ [+] Add equipment                                 │  │
+│     │                                                    │  │
+│     │ Status:                                           │  │
+│     │ [✓] Active (available for booking)               │  │
+│     │                                                    │  │
+│     │ [Cancel] [Save Room]                              │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 3.2 Sarah fills Room #1 - Board Room:                      │
+│     - Name: "Board Room"                                   │
+│     - Type: "Small"                                        │
+│     - Capacity: 8                                          │
+│     - Floor: 5                                             │
+│     - Location: "North Wing"                               │
+│     - Contact: "Facilities Dept ext. 1234"                 │
+│     - Description: "Executive board room with mahogany     │
+│       table and premium AV equipment"                      │
+│     - Equipment:                                           │
+│       * WiFi                                               │
+│       * Projector                                          │
+│       * Monitor                                            │
+│     - Status: Active ✓                                     │
+│         ↓                                                   │
+│ 3.3 Sarah clicks "Save Room"                               │
+│         ↓                                                   │
+│ 3.4 handleSaveRoom() executes:                             │
+│     await VenueRoom.create({                               │
+│       name: "Board Room",                                  │
+│       type: "small",                                       │
+│       capacity: 8,                                         │
+│       floor: 5,                                            │
+│       location: "North Wing",                              │
+│       contact: "Facilities Dept ext. 1234",                │
+│       description: "Executive board room with...",         │
+│       equipment: ["WiFi", "Projector", "Monitor"],         │
+│       is_active: true                                      │
+│     });                                                     │
+│     // Returns: { id: "room_001", ... }                    │
+│         ↓                                                   │
+│ 3.5 Success! Room added to list                            │
+│         ↓                                                   │
+│ 3.6 Sarah repeats process for 5 more rooms:                │
+│                                                             │
+│     Room #2: Conference Room A                             │
+│     - Type: Small, Capacity: 6, Floor: 2                   │
+│     - Equipment: WiFi, Projector                           │
+│                                                             │
+│     Room #3: Conference Room B                             │
+│     - Type: Large, Capacity: 12, Floor: 3                  │
+│     - Equipment: WiFi, Monitor, Coffee                     │
+│                                                             │
+│     Room #4: Meeting Room C                                │
+│     - Type: Small, Capacity: 4, Floor: 2                   │
+│     - Equipment: WiFi                                      │
+│                                                             │
+│     Room #5: Auditorium                                    │
+│     - Type: Large, Capacity: 50, Floor: 1                  │
+│     - Equipment: WiFi, Projector, Monitor, Sound System    │
+│                                                             │
+│     Room #6: Private Office                                │
+│     - Type: Small, Capacity: 2, Floor: 4                   │
+│     - Equipment: WiFi, Monitor                             │
+│         ↓                                                   │
+│ 3.7 All 6 rooms now appear in venue list                   │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 4: MANAGE EXISTING ROOMS
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 4.1 Room list shows all rooms:                             │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Board Room (Small)              Floor 5          │  │
+│     │ Capacity: 8 | WiFi, Projector, Monitor           │  │
+│     │ ✓ Active    [Edit] [Deactivate] [View Bookings] │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ Conference Room A (Small)       Floor 2          │  │
+│     │ Capacity: 6 | WiFi, Projector                    │  │
+│     │ ✓ Active    [Edit] [Deactivate] [View Bookings] │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ Conference Room B (Large)       Floor 3          │  │
+│     │ Capacity: 12 | WiFi, Monitor, Coffee             │  │
+│     │ ✓ Active    [Edit] [Deactivate] [View Bookings] │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 4.2 Sarah needs to update Conference Room A:               │
+│     - Add coffee machine                                   │
+│     - Update capacity to 8                                 │
+│         ↓                                                   │
+│ 4.3 Sarah clicks [Edit] on Conference Room A               │
+│         ↓                                                   │
+│ 4.4 RoomFormDialog opens with pre-filled data              │
+│         ↓                                                   │
+│ 4.5 Sarah modifies:                                        │
+│     - Capacity: 6 → 8                                      │
+│     - Equipment: Add "Coffee"                              │
+│         ↓                                                   │
+│ 4.6 Clicks "Save Room"                                     │
+│         ↓                                                   │
+│ 4.7 await VenueRoom.update("room_002", {                   │
+│       capacity: 8,                                         │
+│       equipment: ["WiFi", "Projector", "Coffee"]           │
+│     });                                                     │
+│         ↓                                                   │
+│ 4.8 Room updated successfully!                             │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 5: DEACTIVATE A ROOM (TEMPORARILY)
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 5.1 Private Office needs maintenance                       │
+│     Sarah wants to disable it temporarily                  │
+│         ↓                                                   │
+│ 5.2 Sarah clicks [Deactivate] on Private Office            │
+│         ↓                                                   │
+│ 5.3 Confirmation dialog:                                   │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Deactivate Room?                                  │  │
+│     │                                                    │  │
+│     │ This will prevent new bookings for Private Office.│  │
+│     │ Existing bookings will remain active.             │  │
+│     │                                                    │  │
+│     │ [Cancel] [Confirm]                                │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 5.4 Sarah clicks [Confirm]                                 │
+│         ↓                                                   │
+│ 5.5 await VenueRoom.update("room_006", {                   │
+│       is_active: false                                     │
+│     });                                                     │
+│         ↓                                                   │
+│ 5.6 Room now shows as "Inactive"                           │
+│     Users can no longer book this room                     │
+│     [Reactivate] button available                          │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 6: CREATE PRIVATE BOOKING (ADMIN ONLY)
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 6.1 VIP visit scheduled - need to block Board Room         │
+│     Sarah creates a private booking                        │
+│         ↓                                                   │
+│ 6.2 Sarah clicks [View Schedule] from Venue Management     │
+│     → Navigates to /venues                                 │
+│         ↓                                                   │
+│ 6.3 On Venues page, Sarah sees schedule grid               │
+│     Admin-only feature appears: [+ Private Booking]        │
+│         ↓                                                   │
+│ 6.4 Sarah clicks [+ Private Booking] button                │
+│         ↓                                                   │
+│ 6.5 PrivateBookingDialog opens:                            │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Create Private Booking                            │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ Room: *                                           │  │
+│     │ [Board Room ▼]                                    │  │
+│     │                                                    │  │
+│     │ Purpose: *                                        │  │
+│     │ [________________________]                        │  │
+│     │                                                    │  │
+│     │ Date: *                                           │  │
+│     │ [Jan 22, 2025]                                    │  │
+│     │                                                    │  │
+│     │ Start Time: *   End Time: *                       │  │
+│     │ [14:00]        [16:00]                            │  │
+│     │                                                    │  │
+│     │ [Cancel] [Create Booking]                         │  │
+│     └──────────────────────────────────────────────────┘  │
+│         ↓                                                   │
+│ 6.6 Sarah fills:                                           │
+│     - Room: Board Room                                     │
+│     - Purpose: "VIP Director Visit - Conference Prep"      │
+│     - Date: January 22, 2025                               │
+│     - Time: 14:00 - 16:00                                  │
+│         ↓                                                   │
+│ 6.7 Sarah clicks [Create Booking]                          │
+│         ↓                                                   │
+│ 6.8 handlePrivateBooking() executes:                       │
+│     const selectedRoom = await VenueRoom.get("room_001");  │
+│                                                             │
+│     const startDateTime = new Date("2025-01-22T14:00:00"); │
+│     const endDateTime = new Date("2025-01-22T16:00:00");   │
+│                                                             │
+│     // Check conflicts                                     │
+│     const conflicts = checkConflicts(...);                 │
+│     // No conflicts found                                  │
+│                                                             │
+│     await VenueBooking.create({                            │
+│       room_id: "room_001",                                 │
+│       room_name: "Board Room",                             │
+│       room_type: "small",                                  │
+│       capacity: 8,                                         │
+│       floor_level: 5,                                      │
+│       equipment: ["WiFi", "Projector", "Monitor"],         │
+│       booked_by: "admin_001",      // Sarah's ID           │
+│       booking_type: "private",     // Private booking!     │
+│       meeting_request_id: null,    // No meeting           │
+│       private_meeting_topic: "VIP Director Visit...",      │
+│       start_time: "2025-01-22T14:00:00Z",                 │
+│       end_time: "2025-01-22T16:00:00Z",                   │
+│       status: "active"                                     │
+│     });                                                     │
+│         ↓                                                   │
+│ 6.9 Booking created!                                       │
+│     Board Room now blocked on Jan 22, 14:00-16:00          │
+│     Regular users cannot book this slot                    │
+└────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════
+STEP 7: VIEW ANALYTICS
+══════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ 7.1 Sarah navigates to Admin → Statistics tab              │
+│         ↓                                                   │
+│ 7.2 Analytics Dashboard shows:                             │
+│                                                             │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Venue Usage Statistics                            │  │
+│     ├──────────────────────────────────────────────────┤  │
+│     │ Total Bookings This Month: 45                     │  │
+│     │ Average Booking Duration: 52 minutes              │  │
+│     │ Most Popular Room: Board Room (12 bookings)       │  │
+│     │ Peak Booking Time: 10:00 - 12:00                  │  │
+│     └──────────────────────────────────────────────────┘  │
+│                                                             │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Room Utilization Rate                             │  │
+│     │ ████████████████████ Board Room: 85%             │  │
+│     │ ████████████████     Conf Room A: 72%            │  │
+│     │ ████████████         Conf Room B: 58%            │  │
+│     │ ████████             Meeting Room C: 45%         │  │
+│     │ ██████               Auditorium: 30%              │  │
+│     │ ████                 Private Office: 20%          │  │
+│     └──────────────────────────────────────────────────┘  │
+│                                                             │
+│     ┌──────────────────────────────────────────────────┐  │
+│     │ Booking Types                                     │  │
+│     │ 🟦 Meeting Bookings: 42 (93%)                     │  │
+│     │ 🟨 Private Bookings: 3 (7%)                       │  │
+│     └──────────────────────────────────────────────────┘  │
+│                                                             │
+│     [Export Report] [View Details] [Print]                │
+└────────────────────────────────────────────────────────────┘
+
+
+
+
+
