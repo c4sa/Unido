@@ -27,11 +27,25 @@ export default function ForgotPassword() {
     }
 
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/verify-otp`,
+      // Use custom OTP API instead of Supabase
+      // In development, call the Express server directly
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:3000/api/send-password-reset-otp'
+        : '/api/send-password-reset-otp';
+        
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email })
       });
 
-      if (resetError) throw resetError;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send reset email');
+      }
 
       setSuccess(true);
     } catch (err) {
@@ -77,18 +91,18 @@ export default function ForgotPassword() {
                   </div>
                   <h3 className="text-lg font-semibold text-green-800 mb-2">Email Sent!</h3>
                   <p className="text-sm text-green-700">
-                    We've sent password reset instructions to <strong>{email}</strong>
+                    We've sent a 6-digit verification code to <strong>{email}</strong>. 
+                    Please check your email and enter the code on the next page.
                   </p>
                 </div>
                 <Button
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate(`/verify-otp?email=${encodeURIComponent(email)}`)}
                   className="w-full h-14 text-base font-medium text-white"
                   style={{ backgroundColor: '#0064b0' }}
                   onMouseEnter={(e) => e.target.style.backgroundColor = '#0052a3'}
                   onMouseLeave={(e) => e.target.style.backgroundColor = '#0064b0'}
                 >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Login
+                  Continue to Verification
                 </Button>
               </div>
             ) : (

@@ -193,6 +193,69 @@ This is a security notification. If you did not make this change, please contact
     }
   },
 
+  // Send password reset OTP email
+  async sendPasswordResetOTP(email, otpCode) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #0064b0; margin: 0;">Reset Your Password</h1>
+          <p style="color: #666; margin: 10px 0 0 0;">UNIConnect Security Code</p>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 8px; margin: 20px 0;">
+          <h2 style="color: #333; margin: 0 0 20px 0; text-align: center;">Your Verification Code</h2>
+          <div style="text-align: center; margin: 20px 0;">
+            <div style="display: inline-block; background: #0064b0; color: white; padding: 15px 30px; border-radius: 8px; font-size: 32px; font-weight: bold; letter-spacing: 8px; font-family: monospace;">
+              ${otpCode}
+            </div>
+          </div>
+          <p style="color: #666; text-align: center; margin: 20px 0 0 0;">
+            This code will expire in <strong>60 minutes</strong>
+          </p>
+        </div>
+        
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="color: #856404; margin: 0; font-size: 14px;">
+            <strong>Security Notice:</strong> If you didn't request this password reset, please ignore this email. 
+            Your account remains secure.
+          </p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+          <p style="color: #999; font-size: 12px; margin: 0;">
+            This is an automated message from UNIConnect. Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `;
+
+    const text = `
+Reset Your Password - UNIConnect
+
+Your verification code: ${otpCode}
+
+This code will expire in 60 minutes.
+
+If you didn't request this password reset, please ignore this email.
+
+This is an automated message. Please do not reply.
+    `;
+
+    try {
+      const result = await this.send({
+        to: email,
+        subject: 'Reset Your UNIConnect Password - Verification Code',
+        html,
+        text
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('Error sending password reset OTP email:', error);
+      throw error;
+    }
+  },
+
   // Send welcome email after password reset
   async sendWelcomeEmail(email, fullName) {
     const html = `

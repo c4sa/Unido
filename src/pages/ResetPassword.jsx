@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/api/entities';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -10,11 +10,28 @@ import mainLogo from '../main_logo.svg';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
+
+  // Check for required parameters on mount
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    const tokenParam = searchParams.get('token');
+    
+    if (!emailParam || !tokenParam) {
+      setError('Invalid reset link. Please start from the forgot password page.');
+      return;
+    }
+    
+    setEmail(emailParam);
+    setResetToken(tokenParam);
+  }, [searchParams]);
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
@@ -40,11 +57,46 @@ export default function ResetPassword() {
     }
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password
+      if (!email || !resetToken) {
+        throw new Error('Missing reset information. Please start from the forgot password page.');
+      }
+
+      // Extract info from reset token
+      const [tokenEmail, otp, timestamp] = resetToken.split(':');
+      
+      if (tokenEmail !== email) {
+        throw new Error('Invalid reset token.');
+      }
+
+      // Check if token is not too old (1 hour max)
+      const tokenAge = Date.now() - parseInt(timestamp);
+      if (tokenAge > 60 * 60 * 1000) { // 1 hour in milliseconds
+        throw new Error('Reset token has expired. Please start the password reset process again.');
+      }
+
+      // Update password using custom API (OTP was already verified)
+      // In development, call the Express server directly
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:3000/api/update-password-after-otp'
+        : '/api/update-password-after-otp';
+        
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: email,
+          resetToken: resetToken,
+          newPassword: password
+        })
       });
 
-      if (updateError) throw updateError;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update password');
+      }
 
       setSuccess(true);
       // Redirect to login after successful password reset

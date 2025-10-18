@@ -74,21 +74,40 @@ export default function VerifyOTP() {
     }
 
     try {
-      // Get the email from URL params or session
+      // Get the email from URL params
       const email = searchParams.get('email') || '';
       
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        token: otpString,
-        type: 'recovery',
-        email: email
+      if (!email) {
+        throw new Error('Email parameter is missing. Please start from the forgot password page.');
+      }
+
+      // Use custom OTP verification API
+      // In development, call the Express server directly
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:3000/api/verify-password-reset-otp'
+        : '/api/verify-password-reset-otp';
+        
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: email,
+          otp: otpString
+        })
       });
 
-      if (verifyError) throw verifyError;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to verify OTP');
+      }
 
       setSuccess(true);
-      // Redirect to reset password page or dashboard after successful verification
+      // Redirect to reset password page with email and reset token
       setTimeout(() => {
-        navigate('/reset-password');
+        navigate(`/reset-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(result.resetToken)}`);
       }, 2000);
     } catch (err) {
       console.error('OTP verification error:', err);
@@ -104,12 +123,30 @@ export default function VerifyOTP() {
 
     try {
       const email = searchParams.get('email') || '';
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'recovery',
-        email: email
+      
+      if (!email) {
+        throw new Error('Email parameter is missing.');
+      }
+
+      // Use custom resend OTP API
+      // In development, call the Express server directly
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:3000/api/send-password-reset-otp'
+        : '/api/send-password-reset-otp';
+        
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email })
       });
 
-      if (resendError) throw resendError;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to resend OTP');
+      }
 
       setError(null);
       // Show success message for resend

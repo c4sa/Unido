@@ -8,6 +8,15 @@
     },
     "api/verify-passcode.js": {
       "maxDuration": 10
+    },
+    "api/send-password-reset-otp.js": {
+      "maxDuration": 10
+    },
+    "api/verify-password-reset-otp.js": {
+      "maxDuration": 10
+    },
+    "api/update-password-after-otp.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [
