@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Lock, ArrowLeft } from 'lucide-react';
+import { Lock, ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import mainLogo from '../main_logo.svg';
 
 export default function ResetPassword() {
@@ -18,6 +18,8 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Check for required parameters on mount
   useEffect(() => {
@@ -33,19 +35,40 @@ export default function ResetPassword() {
     setResetToken(tokenParam);
   }, [searchParams]);
 
+  const validatePassword = (pwd) => {
+    if (pwd.length < 8) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (!/(?=.*[a-z])/.test(pwd)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!/(?=.*[A-Z])/.test(pwd)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!/(?=.*\d)/.test(pwd)) {
+      return 'Password must contain at least one number';
+    }
+    if (!/(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(pwd)) {
+      return 'Password must contain at least one special character';
+    }
+    return null;
+  };
+
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    // Validation
     if (!password || !confirmPassword) {
       setError('Please fill in all fields.');
       setLoading(false);
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       setLoading(false);
       return;
     }
@@ -132,11 +155,14 @@ export default function ResetPassword() {
           </CardHeader>
 
           <CardContent className="space-y-8 px-8 pb-8">
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-sm text-red-800 text-center">{error}</p>
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600" />
+                <p className="text-sm text-red-800">{error}</p>
               </div>
-            )}
+            </div>
+          )}
 
             {success ? (
               <div className="text-center space-y-6">
@@ -158,16 +184,41 @@ export default function ResetPassword() {
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
                       id="password"
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       placeholder="Enter new password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 h-12"
+                      className="pl-10 pr-10 h-12"
                       required
-                      minLength={6}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
-                  <p className="text-xs text-gray-500">Minimum 6 characters</p>
+                  <div className="text-xs text-gray-500">
+                    <p>Password must contain:</p>
+                    <ul className="list-disc list-inside ml-2 space-y-1">
+                      <li className={password.length >= 8 ? 'text-green-600' : 'text-gray-500'}>
+                        At least 8 characters
+                      </li>
+                      <li className={/(?=.*[a-z])/.test(password) ? 'text-green-600' : 'text-gray-500'}>
+                        One lowercase letter
+                      </li>
+                      <li className={/(?=.*[A-Z])/.test(password) ? 'text-green-600' : 'text-gray-500'}>
+                        One uppercase letter
+                      </li>
+                      <li className={/(?=.*\d)/.test(password) ? 'text-green-600' : 'text-gray-500'}>
+                        One number
+                      </li>
+                      <li className={/(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(password) ? 'text-green-600' : 'text-gray-500'}>
+                        One special character
+                      </li>
+                    </ul>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -176,20 +227,29 @@ export default function ResetPassword() {
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
                       id="confirmPassword"
-                      type="password"
+                      type={showConfirmPassword ? 'text' : 'password'}
                       placeholder="Confirm new password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="pl-10 h-12"
+                      className="pl-10 pr-10 h-12"
                       required
-                      minLength={6}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
+                  {confirmPassword && password !== confirmPassword && (
+                    <p className="text-xs text-red-600">Passwords do not match</p>
+                  )}
                 </div>
 
                 <Button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !password || !confirmPassword || password !== confirmPassword}
                   className="w-full h-14 text-base font-medium text-white"
                   style={{ backgroundColor: '#0064b0' }}
                   onMouseEnter={(e) => e.target.style.backgroundColor = '#0052a3'}
@@ -198,7 +258,7 @@ export default function ResetPassword() {
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Updating...
+                      Updating Password...
                     </>
                   ) : (
                     'Update Password'
@@ -206,6 +266,14 @@ export default function ResetPassword() {
                 </Button>
               </form>
             )}
+
+            {/* Security Notice */}
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800 text-center">
+                <strong>Security Notice:</strong> Your password will be encrypted and stored securely. 
+                Make sure to use a strong, unique password.
+              </p>
+            </div>
 
             {/* Action Links */}
             <div className="flex justify-center text-sm">

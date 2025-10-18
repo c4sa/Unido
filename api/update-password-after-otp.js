@@ -22,9 +22,21 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Email, reset token, and new password are required' });
   }
 
-  // Validate password strength
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+  // Validate password strength (same as frontend validation)
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+  }
+  if (!/(?=.*[a-z])/.test(newPassword)) {
+    return res.status(400).json({ error: 'Password must contain at least one lowercase letter' });
+  }
+  if (!/(?=.*[A-Z])/.test(newPassword)) {
+    return res.status(400).json({ error: 'Password must contain at least one uppercase letter' });
+  }
+  if (!/(?=.*\d)/.test(newPassword)) {
+    return res.status(400).json({ error: 'Password must contain at least one number' });
+  }
+  if (!/(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(newPassword)) {
+    return res.status(400).json({ error: 'Password must contain at least one special character' });
   }
 
   // Initialize Supabase client
