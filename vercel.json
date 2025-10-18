@@ -1,4 +1,15 @@
 {
+  "buildCommand": "vite build",
+  "devCommand": "vite",
+  "installCommand": "npm install",
+  "functions": {
+    "api/send-email.js": {
+      "maxDuration": 10
+    },
+    "api/verify-passcode.js": {
+      "maxDuration": 10
+    }
+  },
   "rewrites": [
     {
       "source": "/((?!api/).*)",

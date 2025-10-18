@@ -1,18 +1,17 @@
 /**
- * Smart Email Service with Fallback
- * Follows FMF approach - tries API first, falls back to simulation
+ * Email Service with Smart Fallback
+ * Uses local server in development, serverless functions in production
  */
 
-// Pure serverless approach - uses Vercel API routes in both dev and production
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+// API Base URL - smart detection like reference project
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
 // Development fallback - simulate email sending
 const simulateEmailSending = async ({ to, subject, html, text }) => {
-  console.log('📧 DEVELOPMENT MODE - Simulating email sending:');
-  console.log('📧 To:', to);
-  console.log('📧 Subject:', subject);
-  console.log('📧 HTML Preview:', html.substring(0, 200) + '...');
-  console.log('ℹ️  In production, this will be sent via email automatically.');
+  console.log('📧 Simulating email sending (development mode):');
+  console.log('To:', to);
+  console.log('Subject:', subject);
+  console.log('HTML Preview:', html.substring(0, 100) + '...');
   
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -20,12 +19,11 @@ const simulateEmailSending = async ({ to, subject, html, text }) => {
   return {
     success: true,
     messageId: 'dev-' + Date.now(),
-    response: 'Email simulated in development mode',
-    development: true
+    response: 'Email simulated in development mode'
   };
 };
 
-// Smart email service with fallback
+// Email service with graceful fallback
 export const emailService = {
   // Generic send function for all emails
   async send({ to, subject, html, text }) {
@@ -51,14 +49,14 @@ export const emailService = {
       const result = await response.json();
       return result;
     } catch (error) {
-      console.warn('📧 API endpoint failed, falling back to simulation:', error.message);
+      console.warn('API endpoint failed, falling back to simulation:', error.message);
       
       // Check if it's a network error (server not running or CORS issue)
       if (error.message.includes('Failed to fetch') || 
           error.message.includes('404') || 
           error.message.includes('CORS') ||
           error.message.includes('ERR_CONNECTION_REFUSED')) {
-        console.log('🔧 API endpoint not available. Using simulation mode...');
+        console.log('🔧 API endpoint not available. Starting simulation mode...');
       }
       
       // Fallback to simulation in both development and production

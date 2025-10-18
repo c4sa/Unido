@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, Save, Plus, Trash2, CheckCircle2, Bell, AlertCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
+import countries from "world-countries";
 
 const REPRESENTATION_TYPES = [
   { value: "government", label: "Government" },
@@ -40,6 +41,17 @@ const SAMPLE_REGIONS = [
   "Middle East", "Central Asia", "Caribbean", "Nordic Countries", "ASEAN"
 ];
 
+// Process countries list: exclude Israel, sort alphabetically, set Saudi Arabia as default
+const COUNTRIES_LIST = countries
+  .filter(country => country.name.common !== "Israel")
+  .map(country => ({
+    value: country.name.common,
+    label: country.name.common
+  }))
+  .sort((a, b) => a.label.localeCompare(b.label));
+
+const DEFAULT_COUNTRY = "Saudi Arabia";
+
 export default function Profile() {
   const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState(null);
@@ -57,7 +69,17 @@ export default function Profile() {
     try {
       const user = await User.me();
       setCurrentUser(user);
-      setFormData(user);
+      
+      // Check if user's country exists in our countries list
+      const userCountryExists = user.country && COUNTRIES_LIST.some(c => c.value === user.country);
+      
+      // Use user's country if it exists in our list, otherwise preserve their existing value or use default
+      const userData = {
+        ...user,
+        country: userCountryExists ? user.country : (user.country || DEFAULT_COUNTRY)
+      };
+      
+      setFormData(userData);
       setConsentGiven(user.consent_given || false);
     } catch (error) {
       console.error("Error loading user data:", error);
@@ -417,12 +439,27 @@ export default function Profile() {
 
               <div className="space-y-2">
                 <Label>Country/Entity <span className="text-red-500">*</span></Label>
-                <Input
-                  value={formData.country || ''}
-                  onChange={(e) => handleInputChange('country', e.target.value)}
-                  placeholder="Country or entity you represent"
-                  className={errors.country ? "border-red-500" : ""}
-                />
+                <Select
+                  value={formData.country || DEFAULT_COUNTRY}
+                  onValueChange={(value) => handleInputChange('country', value)}
+                >
+                  <SelectTrigger className={errors.country ? "border-red-500" : ""}>
+                    <SelectValue placeholder="Select your country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Add user's existing country if it's not in the standard list */}
+                    {formData.country && !COUNTRIES_LIST.some(c => c.value === formData.country) && (
+                      <SelectItem key={formData.country} value={formData.country}>
+                        {formData.country} (Current)
+                      </SelectItem>
+                    )}
+                    {COUNTRIES_LIST.map((country) => (
+                      <SelectItem key={country.value} value={country.value}>
+                        {country.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {errors.country && (
                   <p className="text-sm text-red-500">{errors.country}</p>
                 )}
