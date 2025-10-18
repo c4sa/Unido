@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/api/entities';
 import { Shield } from 'lucide-react';
+import PasswordResetModal from '@/components/auth/PasswordResetModal';
 
 /**
  * ProtectedRoute Component
@@ -11,6 +12,7 @@ import { Shield } from 'lucide-react';
 export default function ProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -29,7 +31,21 @@ export default function ProtectedRoute({ children }) {
   const checkAuth = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
+      const authenticated = !!session;
+      setIsAuthenticated(authenticated);
+
+      // If authenticated, check if password reset is needed
+      if (authenticated && session.user) {
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('is_password_reset')
+          .eq('id', session.user.id)
+          .single();
+
+        if (!profileError && userProfile?.is_password_reset) {
+          setNeedsPasswordReset(true);
+        }
+      }
     } catch (error) {
       console.error('Error checking authentication:', error);
       setIsAuthenticated(false);
@@ -57,7 +73,20 @@ export default function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  // Render protected content if authenticated
+  // Show password reset modal if needed
+  if (needsPasswordReset) {
+    return (
+      <PasswordResetModal 
+        onPasswordReset={() => {
+          setNeedsPasswordReset(false);
+          // Force re-check auth state
+          checkAuth();
+        }} 
+      />
+    );
+  }
+
+  // Render protected content if authenticated and password reset not needed
   return children;
 }
 

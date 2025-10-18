@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, Save, Plus, Trash2, CheckCircle2, Bell, AlertCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/components/ui/use-toast";
 
 const REPRESENTATION_TYPES = [
   { value: "government", label: "Government" },
@@ -40,11 +41,13 @@ const SAMPLE_REGIONS = [
 ];
 
 export default function Profile() {
+  const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState(null);
   const [formData, setFormData] = useState({});
   const [consentGiven, setConsentGiven] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     loadUserData();
@@ -62,8 +65,64 @@ export default function Profile() {
     setLoading(false);
   };
 
+  // Validation functions
+  const validateLinkedInUrl = (url) => {
+    if (!url) return true; // Optional field
+    const linkedinRegex = /^https?:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+\/?$/;
+    return linkedinRegex.test(url);
+  };
+
+  const validateBiography = (bio) => {
+    if (!bio) return false; // Required field
+    return bio.trim().length >= 50 && bio.trim().length <= 500;
+  };
+
+  const validateField = (field, value) => {
+    const newErrors = { ...errors };
+    
+    switch (field) {
+      case 'linkedin_profile':
+        if (value && !validateLinkedInUrl(value)) {
+          newErrors[field] = 'Please enter a valid LinkedIn profile URL (e.g., https://linkedin.com/in/yourprofile)';
+        } else {
+          delete newErrors[field];
+        }
+        break;
+      case 'biography':
+        if (!validateBiography(value)) {
+          if (!value || value.trim().length === 0) {
+            newErrors[field] = 'Professional biography is required';
+          } else if (value.trim().length < 50) {
+            newErrors[field] = `Biography must be at least 50 characters (${value.trim().length}/50)`;
+          } else if (value.trim().length > 500) {
+            newErrors[field] = `Biography must not exceed 500 characters (${value.trim().length}/500)`;
+          }
+        } else {
+          delete newErrors[field];
+        }
+        break;
+      case 'full_name':
+      case 'representation_type':
+      case 'country':
+      case 'job_title':
+      case 'organization':
+      case 'industry_sector':
+        if (!value || value.trim().length === 0) {
+          newErrors[field] = 'This field is required';
+        } else {
+          delete newErrors[field];
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setErrors(newErrors);
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    validateField(field, value);
   };
 
   const addInterest = (type, item) => {
@@ -76,15 +135,32 @@ export default function Profile() {
         ...prev,
         [type]: [...interests, newInterest]
       }));
+      
+      // Clear error when interest is added
+      if (errors[type]) {
+        const newErrors = { ...errors };
+        delete newErrors[type];
+        setErrors(newErrors);
+      }
     }
   };
 
   const removeInterest = (type, index) => {
     const interests = formData[type] || [];
+    const newInterests = interests.filter((_, i) => i !== index);
     setFormData(prev => ({
       ...prev,
-      [type]: interests.filter((_, i) => i !== index)
+      [type]: newInterests
     }));
+    
+    // Show error if all interests are removed
+    if (newInterests.length === 0) {
+      const newErrors = { ...errors };
+      newErrors[type] = type === 'topical_interests' 
+        ? 'At least one topical interest is required'
+        : 'At least one geographical interest is required';
+      setErrors(newErrors);
+    }
   };
 
   const updateInterestPriority = (type, index, priority) => {
@@ -103,10 +179,68 @@ export default function Profile() {
     }));
   };
 
+  const validateAllFields = () => {
+    const newErrors = {};
+    
+    // Validate required fields
+    const requiredFields = [
+      { field: 'full_name', label: 'Full Name' },
+      { field: 'representation_type', label: 'Representation Type' },
+      { field: 'country', label: 'Country/Entity' },
+      { field: 'job_title', label: 'Job Title' },
+      { field: 'organization', label: 'Organization' },
+      { field: 'industry_sector', label: 'Industry Sector' },
+      { field: 'biography', label: 'Professional Biography' }
+    ];
+    
+    requiredFields.forEach(({ field, label }) => {
+      if (!formData[field] || formData[field].trim().length === 0) {
+        newErrors[field] = `${label} is required`;
+      }
+    });
+    
+    // Validate biography length
+    if (formData.biography && !validateBiography(formData.biography)) {
+      if (formData.biography.trim().length < 50) {
+        newErrors.biography = `Biography must be at least 50 characters (${formData.biography.trim().length}/50)`;
+      } else if (formData.biography.trim().length > 500) {
+        newErrors.biography = `Biography must not exceed 500 characters (${formData.biography.trim().length}/500)`;
+      }
+    }
+    
+    // Validate LinkedIn URL if provided
+    if (formData.linkedin_profile && !validateLinkedInUrl(formData.linkedin_profile)) {
+      newErrors.linkedin_profile = 'Please enter a valid LinkedIn profile URL';
+    }
+    
+    // Validate interests
+    if (!formData.topical_interests || formData.topical_interests.length === 0) {
+      newErrors.topical_interests = 'At least one topical interest is required';
+    }
+    
+    if (!formData.geographical_interests || formData.geographical_interests.length === 0) {
+      newErrors.geographical_interests = 'At least one geographical interest is required';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSave = async () => {
+    // Validate all fields before saving
+    if (!validateAllFields()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fix the errors below before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       const profileComplete = !!(
+        formData.full_name &&
         formData.representation_type &&
         formData.country &&
         formData.job_title &&
@@ -124,8 +258,20 @@ export default function Profile() {
       });
 
       await loadUserData();
+      
+      toast({
+        title: "Profile Saved",
+        description: profileComplete 
+          ? "Your profile has been saved and is now complete!" 
+          : "Your profile has been saved. Complete all required fields to unlock full platform features.",
+      });
     } catch (error) {
       console.error("Error saving profile:", error);
+      toast({
+        title: "Save Failed",
+        description: "There was an error saving your profile. Please try again.",
+        variant: "destructive",
+      });
     }
     setSaving(false);
   };
@@ -208,8 +354,9 @@ export default function Profile() {
 
             {!consentGiven && (
               <Alert className="border-orange-200 bg-orange-50">
-                <AlertDescription className="text-orange-800">
-                  Consent is required to access platform features and connect with other users.
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-800 ml-2">
+                  <strong>Required:</strong> Consent is required to save your profile and access platform features.
                 </AlertDescription>
               </Alert>
             )}
@@ -224,13 +371,17 @@ export default function Profile() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label>Full Name</Label>
+                <Label>Full Name <span className="text-red-500">*</span></Label>
                 <Input
-                  value={currentUser?.full_name || ''}
-                  disabled
-                  className="bg-slate-50"
+                  value={formData.full_name || ''}
+                  onChange={(e) => handleInputChange('full_name', e.target.value)}
+                  placeholder="Enter your full name"
+                  className={errors.full_name ? "border-red-500" : ""}
                 />
-                <p className="text-xs text-slate-500">Name cannot be changed</p>
+                {errors.full_name && (
+                  <p className="text-sm text-red-500">{errors.full_name}</p>
+                )}
+                <p className="text-xs text-slate-500">Your full name as you'd like it to appear to other users</p>
               </div>
 
               <div className="space-y-2">
@@ -243,12 +394,12 @@ export default function Profile() {
               </div>
 
               <div className="space-y-2">
-                <Label>Representation Type</Label>
+                <Label>Representation Type <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.representation_type || ''}
                   onValueChange={(value) => handleInputChange('representation_type', value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={errors.representation_type ? "border-red-500" : ""}>
                     <SelectValue placeholder="Select representation type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -259,42 +410,61 @@ export default function Profile() {
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.representation_type && (
+                  <p className="text-sm text-red-500">{errors.representation_type}</p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label>Country/Entity</Label>
+                <Label>Country/Entity <span className="text-red-500">*</span></Label>
                 <Input
                   value={formData.country || ''}
                   onChange={(e) => handleInputChange('country', e.target.value)}
                   placeholder="Country or entity you represent"
+                  className={errors.country ? "border-red-500" : ""}
                 />
+                {errors.country && (
+                  <p className="text-sm text-red-500">{errors.country}</p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label>Job Title</Label>
+                <Label>Job Title <span className="text-red-500">*</span></Label>
                 <Input
                   value={formData.job_title || ''}
                   onChange={(e) => handleInputChange('job_title', e.target.value)}
                   placeholder="Your current position"
+                  className={errors.job_title ? "border-red-500" : ""}
                 />
+                {errors.job_title && (
+                  <p className="text-sm text-red-500">{errors.job_title}</p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label>Organization</Label>
+                <Label>Organization <span className="text-red-500">*</span></Label>
                 <Input
                   value={formData.organization || ''}
                   onChange={(e) => handleInputChange('organization', e.target.value)}
                   placeholder="Your organization name"
+                  className={errors.organization ? "border-red-500" : ""}
                 />
+                {errors.organization && (
+                  <p className="text-sm text-red-500">{errors.organization}</p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label>Industry Sector</Label>
+                <Label>Industry Sector <span className="text-red-500">*</span></Label>
                 <Input
                   value={formData.industry_sector || ''}
                   onChange={(e) => handleInputChange('industry_sector', e.target.value)}
                   placeholder="e.g. Public Policy, Trade, Defense"
+                  className={errors.industry_sector ? "border-red-500" : ""}
                 />
+                {errors.industry_sector && (
+                  <p className="text-sm text-red-500">{errors.industry_sector}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -303,18 +473,42 @@ export default function Profile() {
                   value={formData.linkedin_profile || ''}
                   onChange={(e) => handleInputChange('linkedin_profile', e.target.value)}
                   placeholder="https://linkedin.com/in/yourprofile"
+                  className={errors.linkedin_profile ? "border-red-500" : ""}
                 />
+                {errors.linkedin_profile && (
+                  <p className="text-sm text-red-500">{errors.linkedin_profile}</p>
+                )}
+                <p className="text-xs text-slate-500">Enter your full LinkedIn profile URL</p>
               </div>
             </div>
 
             <div className="space-y-2 mt-6">
-              <Label>Professional Biography</Label>
+              <Label>Professional Biography <span className="text-red-500">*</span></Label>
               <Textarea
                 value={formData.biography || ''}
                 onChange={(e) => handleInputChange('biography', e.target.value)}
                 placeholder="Brief description of your professional background and expertise..."
-                className="h-24"
+                className={`h-24 ${errors.biography ? "border-red-500" : ""}`}
               />
+              <div className="flex justify-between items-center">
+                <div>
+                  {errors.biography && (
+                    <p className="text-sm text-red-500">{errors.biography}</p>
+                  )}
+                  {!errors.biography && (
+                    <p className="text-xs text-slate-500">Minimum 50 characters, maximum 500 characters</p>
+                  )}
+                </div>
+                <p className={`text-xs ${
+                  (formData.biography?.length || 0) < 50 
+                    ? 'text-red-500' 
+                    : (formData.biography?.length || 0) > 500 
+                      ? 'text-red-500' 
+                      : 'text-slate-500'
+                }`}>
+                  {formData.biography?.length || 0}/500
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -322,8 +516,11 @@ export default function Profile() {
         {/* Topical Interests */}
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
-            <CardTitle>Topical Interests</CardTitle>
+            <CardTitle>Topical Interests <span className="text-red-500">*</span></CardTitle>
             <p className="text-sm text-slate-600">Select areas of professional interest with priority levels</p>
+            {errors.topical_interests && (
+              <p className="text-sm text-red-500">{errors.topical_interests}</p>
+            )}
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -380,8 +577,11 @@ export default function Profile() {
         {/* Geographical Interests */}
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
-            <CardTitle>Geographical Interests</CardTitle>
+            <CardTitle>Geographical Interests <span className="text-red-500">*</span></CardTitle>
             <p className="text-sm text-slate-600">Select regions of professional focus</p>
+            {errors.geographical_interests && (
+              <p className="text-sm text-red-500">{errors.geographical_interests}</p>
+            )}
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

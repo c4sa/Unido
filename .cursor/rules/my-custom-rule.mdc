@@ -1,0 +1,414 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rules for Vercel Deployment with Supabase
+
+## Project Context
+- **Frontend**: Vite + React application
+- **Backend**: Currently separate Node.js server with Nodemailer
+- **Database**: Migrating from Base44 to Supabase
+- **Target Deployment**: Vercel (serverless architecture)
+- **CRITICAL**: Everything must work in BOTH development and production environments
+
+## Critical Rules - DO NOT Modify Unless Explicitly Asked
+
+### 1. Preserve Existing Functionality
+- **NEVER** change the core business logic without explicit user request
+- **NEVER** remove or modify existing features that are working
+- **NEVER** refactor code "just because" - only when asked or fixing bugs
+- **NEVER** change UI/UX elements without permission
+- **ALWAYS** maintain backward compatibility with existing code
+
+### 2. Dual Environment Architecture (CRITICAL)
+
+#### Development Environment:
+- **KEEP** the separate backend server running for local development
+- **USE** `http://localhost:PORT/api/*` for API calls during development
+- **RUN** both frontend and backend separately (as you currently do)
+- **BACKEND**: Keep your Express.js/Node.js server intact in `/server` or `/backend` folder
+
+#### Production Environment (Vercel):
+- **USE** Vercel serverless functions at `/api/*` routes
+- **DEPLOY** only frontend + `/api` folder to Vercel
+- **AUTO-ROUTE**: Vercel automatically handles `/api/*` requests
+
+#### Implementation Strategy:
+```javascript
+// Create a config file: src/config/api.js
+const API_BASE_URL = import.meta.env.DEV 
+  ? 'http://localhost:5000/api'  // Your local backend server
+  : '/api';                        // Vercel serverless functions
+
+export { API_BASE_URL };
+
+// Usage in your components:
+import { API_BASE_URL } from '@/config/api';
+
+const response = await fetch(`${API_BASE_URL}/send-email`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(emailData)
+});
+```
+
+### 3. Backend Structure for Both Environments
+
+```
+project-root/
+├── api/                          # Vercel serverless (production only)
+│   ├── send-email.js            # Serverless version of email route
+│   └── [other-endpoints].js
+├── server/                       # Local development server
+│   ├── index.js                 # Express server entry
+│   ├── routes/
+│   │   ├── email.js            # Email routes
+│   │   └── [other-routes].js
+│   ├── middleware/
+│   └── utils/
+├── src/                         # React frontend
+│   ├── config/
+│   │   └── api.js              # API base URL configuration
+│   ├── components/
+│   ├── lib/
+│   │   └── supabase.js         # Supabase client
+│   └── ...
+├── .env                         # Local environment variables
+├── .env.example
+├── .vercelignore               # Exclude server/ folder from Vercel
+├── vercel.json                 # Vercel configuration
+└── package.json
+```
+
+### 4. Nodemailer Integration (Both Environments)
+
+#### Development (Express Server):
+```javascript
+// server/routes/email.js
+import express from 'express';
+import nodemailer from 'nodemailer';
+
+const router = express.Router();
+
+router.post('/send-email', async (req, res) => {
+  try {
+    const { to, subject, body } = req.body;
+
+    if (!to || !subject || !body) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to,
+      subject,
+      html: body,
+    });
+
+    res.status(200).json({ success: true, message: 'Email sent' });
+  } catch (error) {
+    console.error('Email error:', error);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+export default router;
+```
+
+#### Production (Vercel Serverless):
+```javascript
+// api/send-email.js
+import nodemailer from 'nodemailer';
+
+export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { to, subject, body } = req.body;
+
+    if (!to || !subject || !body) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to,
+      subject,
+      html: body,
+    });
+
+    return res.status(200).json({ success: true, message: 'Email sent' });
+  } catch (error) {
+    console.error('Email error:', error);
+    return res.status(500).json({ error: 'Failed to send email' });
+  }
+}
+```
+
+### 5. Environment Variables Setup
+
+#### Development (.env):
+```bash
+# Vite Frontend (prefix with VITE_)
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+
+# Backend Server (no prefix)
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+PORT=5000
+```
+
+#### Production (Vercel Dashboard):
+- Set environment variables in Vercel project settings
+- **FRONTEND**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- **SERVERLESS API**: `EMAIL_USER`, `EMAIL_PASS`
+- Vercel automatically makes these available to serverless functions
+
+### 6. Package.json Scripts
+
+```json
+{
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "vite",
+    "dev:backend": "node server/index.js",
+    "build": "vite build",
+    "preview": "vite preview",
+    "vercel-build": "vite build"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.0",
+    // ... other dependencies
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0",
+    // ... other dev dependencies
+  }
+}
+```
+
+### 7. Vercel Configuration
+
+#### vercel.json:
+```json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}
+```
+
+#### .vercelignore:
+```
+server/
+node_modules/
+.env
+.env.local
+*.log
+```
+
+### 8. Supabase Integration (Works in Both Environments)
+
+```javascript
+// src/lib/supabase.js
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+```
+
+### 9. Testing in Both Environments
+
+#### Development Testing:
+```bash
+# Terminal 1: Start backend server
+npm run dev:backend
+
+# Terminal 2: Start frontend
+npm run dev:frontend
+
+# Or use concurrently
+npm run dev
+```
+
+#### Production Testing (Local):
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Test serverless functions locally
+vercel dev
+
+# This simulates Vercel environment locally
+```
+
+### 10. Code Modification Guidelines
+
+#### When Converting Routes:
+- **MAINTAIN** both versions: Express route AND serverless function
+- **ENSURE** identical functionality in both
+- **TEST** in development first, then production
+- **KEEP** the same request/response structure
+- **DUPLICATE** logic between server/routes and api/ folders
+
+#### When Adding New Endpoints:
+1. Create Express route in `server/routes/`
+2. Create identical serverless function in `api/`
+3. Test in development environment
+4. Deploy and test in production
+
+### 11. CORS Configuration
+
+#### Development (Express Server):
+```javascript
+// server/index.js
+import express from 'express';
+import cors from 'cors';
+
+const app = express();
+
+app.use(cors({
+  origin: 'http://localhost:5173', // Vite default port
+  credentials: true
+}));
+
+app.use(express.json());
+
+// Your routes here
+```
+
+#### Production (Serverless):
+- CORS headers already included in serverless function template above
+- Or configure in `vercel.json` for global CORS
+
+### 12. What NOT to Do
+- ❌ Don't remove the development server (`server/` folder)
+- ❌ Don't hardcode API URLs (use environment-based config)
+- ❌ Don't deploy `server/` folder to Vercel
+- ❌ Don't assume production-only solutions
+- ❌ Don't break development workflow for production convenience
+- ❌ Don't forget to test email sending in BOTH environments
+- ❌ Don't commit `.env` files
+
+### 13. Email Service Specific Requirements
+
+#### Gmail Setup (Both Environments):
+1. Enable 2-Factor Authentication on Gmail
+2. Generate App Password (not regular password)
+3. Use App Password in `EMAIL_PASS` environment variable
+4. Same credentials work in dev and production
+
+#### Testing Email in Development:
+```javascript
+// Create a test endpoint
+// server/routes/test-email.js
+router.post('/test-email', async (req, res) => {
+  // Send test email to verify Nodemailer works
+  // Use this during development
+});
+```
+
+#### Testing Email in Production:
+- Deploy to Vercel
+- Test via Vercel URL: `https://your-app.vercel.app/api/send-email`
+- Check Vercel function logs for errors
+
+### 14. Deployment Checklist
+
+Before deploying to Vercel:
+- [ ] All environment variables set in Vercel dashboard
+- [ ] `.vercelignore` excludes `server/` folder
+- [ ] `vercel.json` configured correctly
+- [ ] API config (`src/config/api.js`) uses environment detection
+- [ ] All serverless functions in `/api` folder
+- [ ] Tested email sending in development
+- [ ] Built frontend successfully (`npm run build`)
+- [ ] No hardcoded URLs in code
+
+After deploying to Vercel:
+- [ ] Test all API endpoints via Vercel URL
+- [ ] Test email sending functionality
+- [ ] Check Vercel function logs
+- [ ] Verify environment variables loaded correctly
+- [ ] Test Supabase connection
+- [ ] Test all features from production URL
+
+### 15. Debugging Both Environments
+
+#### Development Issues:
+- Check if backend server is running
+- Verify `API_BASE_URL` points to `localhost`
+- Check backend console logs
+- Verify environment variables in `.env`
+
+#### Production Issues:
+- Check Vercel deployment logs
+- View serverless function logs in Vercel dashboard
+- Verify environment variables in Vercel settings
+- Test API endpoints directly: `curl -X POST https://your-app.vercel.app/api/send-email`
+- Check for CORS errors in browser console
+
+### 16. Key Principle
+
+**EVERYTHING must work in BOTH environments:**
+- Email sending ✅
+- Database queries ✅
+- Authentication ✅
+- File uploads ✅
+- All API endpoints ✅
+
+**Never sacrifice development experience for production, or vice versa.**
+
+## Remember
+The goal is seamless development AND production deployment. The local Express server handles APIs in development, while Vercel serverless functions handle them in production - all transparently to the frontend through environment-based API configuration.

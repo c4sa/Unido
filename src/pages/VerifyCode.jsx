@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Shield, ArrowLeft } from 'lucide-react';
+import { sendCredentialsEmail } from '@/utils/emailService';
 import mainLogo from '../main_logo.svg';
 
 export default function VerifyCode() {
@@ -80,22 +81,188 @@ export default function VerifyCode() {
       return;
     }
 
+    // Convert UNxxxx format to UN-xxxx format for database
+    const formattedCode = codeString.replace(/^(UN)(\d{4})$/, '$1-$2');
+
+    // Check if we're in development mode (no API available)
+    const isDevelopment = !window.location.hostname.includes('vercel.app') && 
+                         !window.location.hostname.includes('netlify.app') &&
+                         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+    if (isDevelopment) {
+      // Development mode - use direct Supabase calls
+      console.log('🔧 DEVELOPMENT MODE - Using direct Supabase verification...');
+      try {
+        await handleDirectVerification(email, formattedCode);
+        return;
+      } catch (directError) {
+        console.error('Direct verification failed:', directError);
+        setError(directError.message || 'Verification failed. Please check your code and try again.');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
-      // Here you would typically verify the code with your backend
-      // For now, we'll simulate a successful verification
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call backend API to verify passcode and create user
+      const response = await fetch('/api/verify-passcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email, 
+          code: formattedCode 
+        })
+      });
+
+      let result;
+      
+      // Handle response parsing more safely
+      try {
+        const responseText = await response.text();
+        if (!responseText) {
+          throw new Error('Empty response from server');
+        }
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Server returned invalid response. Please try again.');
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Verification failed');
+      }
+
+      // Send credentials email
+      try {
+        await sendCredentialsEmail(result.email, result.tempPassword);
+      } catch (emailError) {
+        console.error('Email sending error:', emailError);
+        // Don't fail the verification if email fails
+      }
       
       setSuccess(true);
-      // Redirect to dashboard after successful verification
+      
+      // Redirect to login after successful verification
       setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+        navigate('/login');
+      }, 3000);
     } catch (err) {
       console.error('Code verification error:', err);
       setError(err.message || 'Invalid code. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Direct verification fallback for development
+  const handleDirectVerification = async (email, formattedCode) => {
+    console.log('Verifying passcode:', formattedCode);
+    
+    // 1. Verify passcode exists and is not used
+    const { data: passcode, error: passcodeError } = await supabase
+      .from('passcodes')
+      .select('*')
+      .eq('code', formattedCode)
+      .eq('is_used', false)
+      .single();
+
+    if (passcodeError) {
+      console.error('Passcode query error:', passcodeError);
+      throw new Error('Invalid or already used passcode');
+    }
+
+    if (!passcode) {
+      throw new Error('Invalid or already used passcode');
+    }
+
+    console.log('Passcode found:', passcode);
+
+    // 2. Skip user existence check for development mode
+    // The backend API will handle this properly
+
+    // 3. Generate temporary password
+    const tempPassword = generateTempPassword();
+    console.log('Generated temp password:', tempPassword);
+
+    // 4. Create user account using signUp (this works with anon key)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: email,
+      password: tempPassword,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`
+      }
+    });
+
+    if (authError) {
+      console.error('Auth error:', authError);
+      throw new Error('Failed to create user account: ' + authError.message);
+    }
+
+    if (!authData.user) {
+      throw new Error('Failed to create user account');
+    }
+
+    console.log('User created:', authData.user.id);
+
+    // 5. Create user profile in public.users table
+    const { error: profileError } = await supabase
+      .from('users')
+      .insert({
+        id: authData.user.id,
+        email: email,
+        full_name: '',
+        role: 'user',
+        is_password_reset: true,
+        created_by: email
+      });
+
+    if (profileError) {
+      console.error('Profile creation error:', profileError);
+      throw new Error('Failed to create user profile: ' + profileError.message);
+    }
+
+    console.log('Profile created successfully');
+
+    // 6. Sign out the user immediately (they should login manually with temp password)
+    await supabase.auth.signOut();
+    console.log('User signed out - they must login manually');
+
+    // 7. Mark passcode as used
+    const { error: updateError } = await supabase
+      .from('passcodes')
+      .update({
+        is_used: true,
+        used_by: authData.user.id,
+        used_at: new Date().toISOString()
+      })
+      .eq('code', formattedCode);
+
+    if (updateError) {
+      console.error('Passcode update error:', updateError);
+      // Don't fail the request for this
+    } else {
+      console.log('Passcode marked as used');
+    }
+
+    // 8. Send credentials email
+    try {
+      await sendCredentialsEmail(email, tempPassword);
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+      // Don't fail the verification if email fails
+    }
+    
+    setSuccess(true);
+    
+    // Redirect to login after successful verification
+    setTimeout(() => {
+      navigate('/login');
+    }, 3000);
+  };
+
+  const generateTempPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+    return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   };
 
   const handleResendCode = async () => {
@@ -149,10 +316,16 @@ export default function VerifyCode() {
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Shield className="w-8 h-8 text-green-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-green-800 mb-2">Code Verified!</h3>
+                  <h3 className="text-lg font-semibold text-green-800 mb-2">Account Created!</h3>
                   <p className="text-sm text-green-700">
-                    Your identity has been successfully verified. Redirecting to dashboard...
+                    Your account has been created successfully. We've sent your login credentials to your email. 
+                    You'll be redirected to the login page where you can sign in with your temporary password.
                   </p>
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-xs text-blue-800">
+                      <strong>Next Steps:</strong> Check your email → Login with temporary password → Set your new password → Access dashboard
+                    </p>
+                  </div>
                 </div>
               </div>
             ) : (

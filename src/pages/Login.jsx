@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Lock } from 'lucide-react';
+import PasswordResetModal from '@/components/auth/PasswordResetModal';
 import mainLogo from '../main_logo.svg';
 
 export default function Login() {
@@ -15,6 +16,7 @@ export default function Login() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
 
   // Check if user is already logged in
   useEffect(() => {
@@ -53,13 +55,37 @@ export default function Login() {
 
       if (signInError) throw signInError;
 
-      // Successful login - navigate to dashboard
-      navigate('/dashboard');
+      // Check if user needs password reset
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('is_password_reset')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+        // If we can't fetch profile, allow normal login
+        navigate('/dashboard');
+        return;
+      }
+
+      // If user needs password reset, show modal
+      if (userProfile?.is_password_reset) {
+        setShowPasswordResetModal(true);
+      } else {
+        // Normal login for existing users
+        navigate('/dashboard');
+      }
     } catch (err) {
       console.error('Sign in error:', err);
       setError(err.message || 'Invalid email or password. Please try again.');
       setLoading(false);
     }
+  };
+
+  const handlePasswordResetComplete = () => {
+    setShowPasswordResetModal(false);
+    navigate('/dashboard');
   };
 
   if (checkingAuth) {
@@ -180,6 +206,11 @@ export default function Login() {
           <p className="text-sm text-gray-500">Protected by enterprise-grade security</p>
         </div>
       </div>
+
+      {/* Password Reset Modal */}
+      {showPasswordResetModal && (
+        <PasswordResetModal onPasswordReset={handlePasswordResetComplete} />
+      )}
     </div>
   );
 }

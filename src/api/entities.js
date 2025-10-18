@@ -346,6 +346,32 @@ class VenueRoomEntity extends SupabaseEntity {
   }
 }
 
+/**
+ * Passcode Entity
+ * Handles one-time passcode verification
+ */
+class PasscodeEntity extends SupabaseEntity {
+  constructor() {
+    super('passcodes');
+  }
+
+  async verifyCode(code, email) {
+    // Frontend calls backend API instead of direct database access
+    const response = await fetch('/api/verify-passcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, email })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Verification failed');
+    }
+    
+    return await response.json();
+  }
+}
+
 // Export entity instances (maintaining base44 API)
 export const User = new UserEntity();
 export const MeetingRequest = new MeetingRequestEntity();
@@ -353,6 +379,7 @@ export const ChatMessage = new ChatMessageEntity();
 export const VenueBooking = new VenueBookingEntity();
 export const Notification = new NotificationEntity();
 export const VenueRoom = new VenueRoomEntity();
+export const Passcode = new PasscodeEntity();
 
 // Export supabase client for direct access when needed
 export { supabase };
