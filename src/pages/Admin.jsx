@@ -14,7 +14,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Shield, 
-  UserPlus, // Keep for User Invitation Process card icon
   Users, 
   CheckCircle2, 
   AlertCircle,
@@ -218,45 +217,6 @@ export default function Admin() {
           </Card>
         </div>
 
-        {/* User Invitation Information */}
-        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-blue-600" />
-              User Invitation Process
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert className="border-blue-200 bg-blue-50">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
-                <strong>How to Add New Users:</strong> This platform uses Google authentication for security. 
-                To invite new users, share the platform URL with them directly. Once they sign in with Google, 
-                their account will be automatically created and appear in the user management section below.
-              </AlertDescription>
-            </Alert>
-            
-            <div className="bg-slate-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-slate-900 mb-2">Platform URL to Share:</h3>
-              <div className="flex items-center gap-2">
-                <code className="bg-white px-3 py-2 rounded border text-sm flex-1">
-                  {typeof window !== 'undefined' ? window.location.origin : 'Loading...'}
-                </code>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    if (typeof window !== 'undefined') {
-                      navigator.clipboard.writeText(window.location.origin);
-                    }
-                  }}
-                >
-                  Copy Link
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* User Management */}
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
