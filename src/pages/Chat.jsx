@@ -379,7 +379,8 @@ export default function Chat() {
     ? connectedDelegates.find(d => d.id === selectedMeetingId)
     : null;
     
-  const chatPartner = selectedMeeting ? (
+  // For group meetings, don't use chatPartner logic - handle separately
+  const chatPartner = selectedMeeting && selectedMeeting.meeting_type !== 'multi' ? (
     selectedMeeting.requester_id === currentUser?.id
       ? users[(selectedMeeting.recipient_ids || [])[0]]
       : users[selectedMeeting.requester_id]
@@ -538,7 +539,7 @@ export default function Chat() {
           {/* Chat Area */}
           <div className="lg:col-span-3">
             <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg h-[600px] flex flex-col">
-              {chatPartner ? (
+              {(chatPartner || (selectedMeeting && selectedMeeting.meeting_type === 'multi')) ? (
                 <>
                   {/* Chat Header */}
                   <CardHeader className="border-b bg-slate-50 rounded-t-lg">
@@ -549,18 +550,27 @@ export default function Chat() {
                             ? 'from-blue-500 to-indigo-500' 
                             : 'from-green-500 to-emerald-500'
                         } rounded-full flex items-center justify-center`}>
-                          <span className="text-white font-semibold">
-                            {chatPartner.full_name?.charAt(0)?.toUpperCase()}
-                          </span>
+                          {selectedMeeting && selectedMeeting.meeting_type === 'multi' ? (
+                            <UserIcon className="w-5 h-5 text-white" />
+                          ) : (
+                            <span className="text-white font-semibold">
+                              {chatPartner.full_name?.charAt(0)?.toUpperCase()}
+                            </span>
+                          )}
                         </div>
                         <div>
                           <h3 className="font-semibold text-slate-900">
-                            {chatPartner.full_name}
+                            {selectedMeeting && selectedMeeting.meeting_type === 'multi' 
+                              ? selectedMeeting.proposed_topic
+                              : chatPartner.full_name
+                            }
                           </h3>
                           <p className="text-sm text-slate-600">
-                            {selectedChatType === 'meeting' 
-                              ? `${chatPartner.job_title} • ${selectedMeeting.proposed_topic}`
-                              : `${chatPartner.job_title} • ${chatPartner.organization}`
+                            {selectedMeeting && selectedMeeting.meeting_type === 'multi' 
+                              ? `Group Meeting • ${(selectedMeeting.recipient_ids || []).length + 1} participants`
+                              : selectedChatType === 'meeting' 
+                                ? `${chatPartner.job_title} • ${selectedMeeting.proposed_topic}`
+                                : `${chatPartner.job_title} • ${chatPartner.organization}`
                             }
                           </p>
                         </div>
@@ -624,7 +634,10 @@ export default function Chat() {
                             <>
                               <p className="text-slate-600">Start your conversation</p>
                               <p className="text-sm text-slate-500">
-                                Send a message to begin chatting with {chatPartner.full_name}
+                                {selectedMeeting && selectedMeeting.meeting_type === 'multi'
+                                  ? `Send a message to begin the group chat for "${selectedMeeting.proposed_topic}"`
+                                  : `Send a message to begin chatting with ${chatPartner.full_name}`
+                                }
                               </p>
                             </>
                           ) : (
