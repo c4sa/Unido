@@ -100,6 +100,9 @@ export default function Chat() {
         }
       }
 
+      // Clear any previous access error flags on successful load
+      sessionStorage.removeItem(`chat_access_error_${selectedMeetingId}`);
+
     } catch (error) {
       console.error("Error loading messages:", error);
       // If access is denied, clear messages and show error
@@ -121,12 +124,31 @@ export default function Chat() {
       // Smart polling: reduce frequency when tab is not visible
       let pollInterval = 5000; // 5 seconds when active
       let interval;
+      let consecutiveErrors = 0;
       
       const startPolling = () => {
         if (interval) clearInterval(interval);
-        interval = setInterval(() => {
-          // Skip read updates during polling to improve performance
-          loadMessages(true);
+        interval = setInterval(async () => {
+          // Check if there are recent access errors - if so, reduce polling
+          const hasAccessError = sessionStorage.getItem(`chat_access_error_${selectedMeetingId}`);
+          
+          if (hasAccessError && consecutiveErrors < 3) {
+            // Reduce polling frequency when there are access errors
+            consecutiveErrors++;
+            return;
+          }
+          
+          try {
+            // Skip read updates during polling to improve performance
+            await loadMessages(true);
+            consecutiveErrors = 0; // Reset on successful load
+          } catch (error) {
+            consecutiveErrors++;
+            // Stop polling after too many consecutive errors
+            if (consecutiveErrors >= 5) {
+              clearInterval(interval);
+            }
+          }
         }, pollInterval);
       };
       
@@ -137,6 +159,7 @@ export default function Chat() {
         } else {
           // Tab is visible, normal polling frequency
           pollInterval = 5000; // 5 seconds when active
+          consecutiveErrors = 0; // Reset error count when tab becomes visible
           // Immediately load messages when tab becomes visible
           loadMessages();
         }

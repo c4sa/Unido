@@ -456,60 +456,82 @@ class ChatMessageEntity extends SupabaseEntity {
    * Check if user can access chat for a meeting
    */
   async canAccessMeetingChat(meetingId, userId) {
-    try {
-      // Get meeting details
-      const meeting = await supabase
-        .from('meeting_requests')
-        .select('*')
-        .eq('id', meetingId)
-        .single();
-        
-      if (meeting.error) throw meeting.error;
-      
-      const meetingData = meeting.data;
-      
-      // For single meetings, use original logic
-      if (meetingData.meeting_type === 'single') {
-        return meetingData.status === 'accepted' && 
-               (meetingData.requester_id === userId || 
-                (meetingData.recipient_ids || []).includes(userId));
-      }
-      
-      // For group meetings, check if user is an accepted participant
-      if (meetingData.meeting_type === 'multi') {
-        try {
-          const { data: participant, error: participantError } = await supabase
-            .from('meeting_participants')
-            .select('response_status')
-            .eq('meeting_request_id', meetingId)
-            .eq('participant_id', userId)
-            .eq('response_status', 'accepted')
-            .single();
-            
-          if (participantError) {
-            // If meeting_participants table doesn't exist or no record found,
-            // fall back to checking if user is in recipient_ids and meeting is accepted
-            console.warn('meeting_participants table access failed, using fallback:', participantError);
-            return meetingData.status === 'accepted' && 
-                   (meetingData.requester_id === userId || 
-                    (meetingData.recipient_ids || []).includes(userId));
-          }
+    // Simple retry logic for network failures
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        // Get meeting details
+        const meeting = await supabase
+          .from('meeting_requests')
+          .select('*')
+          .eq('id', meetingId)
+          .single();
           
-          return !!participant; // User must be an accepted participant
-        } catch (error) {
-          // Fallback to original logic if meeting_participants table doesn't exist
-          console.warn('meeting_participants table not available, using fallback');
+        if (meeting.error) throw meeting.error;
+        
+        const meetingData = meeting.data;
+        
+        // For single meetings, use original logic
+        if (meetingData.meeting_type === 'single') {
           return meetingData.status === 'accepted' && 
                  (meetingData.requester_id === userId || 
                   (meetingData.recipient_ids || []).includes(userId));
         }
+        
+        // For group meetings, check if user is an accepted participant
+        if (meetingData.meeting_type === 'multi') {
+          try {
+            const { data: participant, error: participantError } = await supabase
+              .from('meeting_participants')
+              .select('response_status')
+              .eq('meeting_request_id', meetingId)
+              .eq('participant_id', userId)
+              .eq('response_status', 'accepted')
+              .single();
+              
+            if (participantError) {
+              // Improved fallback: check if user is participant regardless of meeting status
+              // This handles cases where meeting status isn't synced yet
+              const isParticipant = meetingData.requester_id === userId || 
+                                   (meetingData.recipient_ids || []).includes(userId);
+              
+              if (isParticipant) {
+                console.warn('meeting_participants table access failed, allowing access for participant:', participantError);
+                return true; // Allow access for participants even if status check fails
+              }
+              
+              return false;
+            }
+            
+            return !!participant; // User must be an accepted participant
+          } catch (error) {
+            // Fallback: allow access if user is a participant
+            const isParticipant = meetingData.requester_id === userId || 
+                                 (meetingData.recipient_ids || []).includes(userId);
+            
+            if (isParticipant) {
+              console.warn('meeting_participants table not available, allowing access for participant');
+              return true;
+            }
+            
+            return false;
+          }
+        }
+        
+        return false;
+      } catch (error) {
+        console.error(`Error checking chat access (attempt ${attempt + 1}):`, error);
+        
+        // If this is the last attempt, return false
+        if (attempt === 1) {
+          return false;
+        }
+        
+        // Wait briefly before retry
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
-      
-      return false;
-    } catch (error) {
-      console.error('Error checking chat access:', error);
-      return false;
     }
+    
+    return false;
   }
 
   /**
@@ -641,7 +663,7 @@ class ChatMessageEntity extends SupabaseEntity {
    */
   async getMeetingMessages(meetingId, userId) {
     try {
-      // Verify user can access this chat
+      // Verify user can access this chat with retry
       const canAccess = await this.canAccessMeetingChat(meetingId, userId);
       if (!canAccess) {
         throw new Error('You do not have access to this chat');
