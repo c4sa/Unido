@@ -503,6 +503,439 @@ app.post('/api/update-password-after-otp', async (req, res) => {
   }
 });
 
+// =====================================================
+// CONNECTION REQUEST ENDPOINTS
+// =====================================================
+
+// Send connection request endpoint
+app.post('/api/send-connection-request', async (req, res) => {
+  try {
+    const { requester_id, recipient_id, connection_message = '' } = req.body;
+
+    // Validate required fields
+    if (!requester_id || !recipient_id) {
+      return res.status(400).json({ error: 'Requester ID and recipient ID are required' });
+    }
+
+    // Prevent self-connection
+    if (requester_id === recipient_id) {
+      return res.status(400).json({ error: 'Cannot send connection request to yourself' });
+    }
+
+    // Use the database function to handle connection creation with proper duplicate handling
+    const { data: result, error: createError } = await supabase
+      .rpc('create_connection_request', {
+        p_requester_id: requester_id,
+        p_recipient_id: recipient_id,
+        p_message: connection_message || ''
+      });
+
+    if (createError) {
+      console.error('Error creating connection request:', createError);
+      return res.status(500).json({ error: 'Failed to create connection request' });
+    }
+
+    const connectionResult = result[0];
+    if (connectionResult.status === 'error') {
+      return res.status(400).json({ error: connectionResult.message });
+    }
+
+    // Get the created connection details
+    const { data: newConnection, error: getError } = await supabase
+      .from('delegate_connections')
+      .select('*')
+      .eq('id', connectionResult.connection_id)
+      .single();
+
+    if (getError) {
+      console.error('Error getting created connection:', getError);
+      return res.status(500).json({ error: 'Failed to get connection details' });
+    }
+
+    // Get requester details for notification
+    const { data: requester, error: requesterError } = await supabase
+      .from('users')
+      .select('full_name, organization')
+      .eq('id', requester_id)
+      .single();
+
+    if (!requesterError && requester) {
+      // Create notification for recipient
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: recipient_id,
+          type: 'new_connection_request',
+          title: 'New Connection Request',
+          body: `${requester.full_name} wants to connect with you${requester.organization ? ` from ${requester.organization}` : ''}.`,
+          link: '/meetings',
+          related_entity_id: newConnection.id
+        });
+
+      if (notificationError) {
+        console.error('Error creating notification:', notificationError);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Connection request sent successfully',
+      connection: newConnection
+    });
+
+  } catch (error) {
+    console.error('Send connection request error:', error);
+    return res.status(500).json({
+      error: 'Failed to send connection request',
+      details: error.message
+    });
+  }
+});
+
+// Respond to connection request endpoint
+app.post('/api/respond-connection-request', async (req, res) => {
+  try {
+    const { connection_id, response } = req.body;
+
+    // Validate required fields
+    if (!connection_id || !response) {
+      return res.status(400).json({ error: 'Connection ID and response are required' });
+    }
+
+    // Validate response value
+    if (!['accepted', 'declined'].includes(response)) {
+      return res.status(400).json({ error: 'Response must be "accepted" or "declined"' });
+    }
+
+    // Get the connection request
+    const { data: connection, error: getError } = await supabase
+      .from('delegate_connections')
+      .select('*')
+      .eq('id', connection_id)
+      .single();
+
+    if (getError) {
+      console.error('Error getting connection:', getError);
+      return res.status(404).json({ error: 'Connection request not found' });
+    }
+
+    // Check if connection is still pending
+    if (connection.status !== 'pending') {
+      return res.status(400).json({ error: 'Connection request is no longer pending' });
+    }
+
+    // Update connection status
+    const { data: updatedConnection, error: updateError } = await supabase
+      .from('delegate_connections')
+      .update({ status: response })
+      .eq('id', connection_id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating connection:', updateError);
+      return res.status(500).json({ error: 'Failed to update connection request' });
+    }
+
+    // Get recipient details for notification
+    const { data: recipient, error: recipientError } = await supabase
+      .from('users')
+      .select('full_name, organization')
+      .eq('id', connection.recipient_id)
+      .single();
+
+    if (!recipientError && recipient) {
+      // Create notification for requester
+      const notificationType = response === 'accepted' ? 'connection_accepted' : 'connection_declined';
+      const notificationTitle = response === 'accepted' ? 'Connection Accepted' : 'Connection Declined';
+      const notificationBody = response === 'accepted' 
+        ? `${recipient.full_name} accepted your connection request. You can now send meeting requests to each other.`
+        : `${recipient.full_name} declined your connection request.`;
+
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: connection.requester_id,
+          type: notificationType,
+          title: notificationTitle,
+          body: notificationBody,
+          link: '/meetings',
+          related_entity_id: connection_id
+        });
+
+      if (notificationError) {
+        console.error('Error creating notification:', notificationError);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Connection request ${response} successfully`,
+      connection: updatedConnection
+    });
+
+  } catch (error) {
+    console.error('Respond to connection request error:', error);
+    return res.status(500).json({
+      error: 'Failed to respond to connection request',
+      details: error.message
+    });
+  }
+});
+
+// Get user connections endpoint
+app.get('/api/user-connections', async (req, res) => {
+  try {
+    const { user_id } = req.query;
+
+    // Validate required fields
+    if (!user_id) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    // Get all connections for the user (both sent and received)
+    const { data: connections, error: connectionsError } = await supabase
+      .from('delegate_connections')
+      .select(`
+        id,
+        requester_id,
+        recipient_id,
+        status,
+        connection_message,
+        created_date,
+        updated_date
+      `)
+      .or(`requester_id.eq.${user_id},recipient_id.eq.${user_id}`)
+      .order('created_date', { ascending: false });
+
+    if (connectionsError) {
+      console.error('Error getting connections:', connectionsError);
+      return res.status(500).json({ error: 'Failed to get connections' });
+    }
+
+    // Get all unique user IDs to fetch user details
+    const userIds = new Set();
+    connections.forEach(conn => {
+      userIds.add(conn.requester_id);
+      userIds.add(conn.recipient_id);
+    });
+    userIds.delete(user_id); // Remove current user
+
+    // Fetch user details for all connected users
+    let users = [];
+    if (userIds.size > 0) {
+      const { data: userData, error: usersError } = await supabase
+        .from('users')
+        .select('id, full_name, organization, job_title, country')
+        .in('id', Array.from(userIds));
+
+      if (usersError) {
+        console.error('Error getting user details:', usersError);
+        return res.status(500).json({ error: 'Failed to get user details' });
+      }
+
+      users = userData || [];
+    }
+
+    // Create user lookup map
+    const userMap = {};
+    users.forEach(user => {
+      userMap[user.id] = user;
+    });
+
+    // Format connections with user details
+    const formattedConnections = connections.map(conn => {
+      const isRequester = conn.requester_id === user_id;
+      const otherUserId = isRequester ? conn.recipient_id : conn.requester_id;
+      const otherUser = userMap[otherUserId];
+
+      return {
+        id: conn.id,
+        status: conn.status,
+        connection_message: conn.connection_message,
+        created_date: conn.created_date,
+        updated_date: conn.updated_date,
+        is_requester: isRequester,
+        other_user: otherUser ? {
+          id: otherUser.id,
+          full_name: otherUser.full_name,
+          organization: otherUser.organization,
+          job_title: otherUser.job_title,
+          country: otherUser.country
+        } : null
+      };
+    });
+
+    // Separate connections by status for easier frontend handling
+    const result = {
+      pending_sent: formattedConnections.filter(c => c.status === 'pending' && c.is_requester),
+      pending_received: formattedConnections.filter(c => c.status === 'pending' && !c.is_requester),
+      accepted: formattedConnections.filter(c => c.status === 'accepted'),
+      declined: formattedConnections.filter(c => c.status === 'declined'),
+      all: formattedConnections
+    };
+
+    return res.status(200).json({
+      success: true,
+      connections: result
+    });
+
+  } catch (error) {
+    console.error('Get user connections error:', error);
+    return res.status(500).json({
+      error: 'Failed to get user connections',
+      details: error.message
+    });
+  }
+});
+
+// Check connection status endpoint
+app.get('/api/check-connection', async (req, res) => {
+  try {
+    const { user1, user2 } = req.query;
+
+    // Validate required fields
+    if (!user1 || !user2) {
+      return res.status(400).json({ error: 'Both user IDs are required' });
+    }
+
+    // Prevent checking connection with self
+    if (user1 === user2) {
+      return res.status(400).json({ error: 'Cannot check connection with yourself' });
+    }
+
+    // Check if users are connected (bidirectional check)
+    const { data: connection, error: checkError } = await supabase
+      .from('delegate_connections')
+      .select('id, status')
+      .eq('status', 'accepted')
+      .or(`and(requester_id.eq.${user1},recipient_id.eq.${user2}),and(requester_id.eq.${user2},recipient_id.eq.${user1})`)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking connection:', checkError);
+      return res.status(500).json({ error: 'Failed to check connection status' });
+    }
+
+    const connected = !!connection;
+
+    return res.status(200).json({
+      success: true,
+      connected: connected,
+      connection_id: connection?.id || null
+    });
+
+  } catch (error) {
+    console.error('Check connection error:', error);
+    return res.status(500).json({
+      error: 'Failed to check connection status',
+      details: error.message
+    });
+  }
+});
+
+// Validate group meeting connections endpoint
+app.post('/api/validate-group-connections', async (req, res) => {
+  try {
+    const { requester_id, recipient_ids } = req.body;
+
+    // Validate required fields
+    if (!requester_id || !recipient_ids || !Array.isArray(recipient_ids)) {
+      return res.status(400).json({ error: 'Requester ID and recipient IDs array are required' });
+    }
+
+    if (recipient_ids.length === 0) {
+      return res.status(400).json({ error: 'At least one recipient is required' });
+    }
+
+    // Remove requester from recipients if accidentally included
+    const cleanRecipientIds = recipient_ids.filter(id => id !== requester_id);
+
+    if (cleanRecipientIds.length === 0) {
+      return res.status(400).json({ error: 'Cannot send meeting request to yourself' });
+    }
+
+    // Check connections for each recipient
+    const connectionChecks = [];
+    
+    for (const recipientId of cleanRecipientIds) {
+      // Check if requester is connected to this recipient
+      const { data: connection, error: checkError } = await supabase
+        .from('delegate_connections')
+        .select('id, status')
+        .eq('status', 'accepted')
+        .or(`and(requester_id.eq.${requester_id},recipient_id.eq.${recipientId}),and(requester_id.eq.${recipientId},recipient_id.eq.${requester_id})`)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error(`Error checking connection with ${recipientId}:`, checkError);
+        connectionChecks.push({
+          user_id: recipientId,
+          connected: false,
+          error: 'Failed to check connection'
+        });
+      } else {
+        connectionChecks.push({
+          user_id: recipientId,
+          connected: !!connection,
+          connection_id: connection?.id || null
+        });
+      }
+    }
+
+    // Get user details for unconnected users
+    const unconnectedUserIds = connectionChecks
+      .filter(check => !check.connected)
+      .map(check => check.user_id);
+
+    let unconnectedUsers = [];
+    if (unconnectedUserIds.length > 0) {
+      const { data: userData, error: usersError } = await supabase
+        .from('users')
+        .select('id, full_name, organization')
+        .in('id', unconnectedUserIds);
+
+      if (usersError) {
+        console.error('Error getting user details:', usersError);
+      } else {
+        unconnectedUsers = userData || [];
+      }
+    }
+
+    // Add user details to connection checks
+    const detailedChecks = connectionChecks.map(check => {
+      if (!check.connected) {
+        const userDetails = unconnectedUsers.find(user => user.id === check.user_id);
+        return {
+          ...check,
+          user_details: userDetails || null
+        };
+      }
+      return check;
+    });
+
+    const allConnected = connectionChecks.every(check => check.connected);
+    const connectedCount = connectionChecks.filter(check => check.connected).length;
+
+    return res.status(200).json({
+      success: true,
+      all_connected: allConnected,
+      total_recipients: cleanRecipientIds.length,
+      connected_count: connectedCount,
+      unconnected_count: cleanRecipientIds.length - connectedCount,
+      connection_checks: detailedChecks,
+      can_send_group_meeting: allConnected
+    });
+
+  } catch (error) {
+    console.error('Validate group connections error:', error);
+    return res.status(500).json({
+      error: 'Failed to validate group connections',
+      details: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -516,6 +949,11 @@ app.listen(PORT, () => {
   console.log(`🔑 Password reset OTP API available at http://localhost:${PORT}/api/send-password-reset-otp`);
   console.log(`✅ OTP verification API available at http://localhost:${PORT}/api/verify-password-reset-otp`);
   console.log(`🔒 Password update API available at http://localhost:${PORT}/api/update-password-after-otp`);
+  console.log(`🤝 Connection request API available at http://localhost:${PORT}/api/send-connection-request`);
+  console.log(`📋 Connection response API available at http://localhost:${PORT}/api/respond-connection-request`);
+  console.log(`👥 User connections API available at http://localhost:${PORT}/api/user-connections`);
+  console.log(`🔍 Check connection API available at http://localhost:${PORT}/api/check-connection`);
+  console.log(`✔️  Group validation API available at http://localhost:${PORT}/api/validate-group-connections`);
   
   if (!smtpConfig.user || !smtpConfig.pass) {
     console.log('⚠️  SMTP not configured - emails will be simulated');

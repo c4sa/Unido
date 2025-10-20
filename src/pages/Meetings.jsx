@@ -4,6 +4,8 @@ import { User } from "@/api/entities";
 import { MeetingRequest } from "@/api/entities";
 import { Notification } from "@/api/entities";
 import { VenueBooking } from "@/api/entities";
+import { Connection } from "@/api/entities";
+import { supabase } from "@/api/entities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,11 +32,141 @@ import {
   Globe,
   CheckCircle2,
   Edit,
-  Trash2
+  Trash2,
+  UserPlus
 } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+
+// Group Participant Status Component
+function GroupParticipantStatus({ meetingId, currentUserId, users }) {
+  const [participants, setParticipants] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadParticipants = async () => {
+      try {
+        const participantData = await MeetingRequest.getParticipants(meetingId);
+        setParticipants(participantData);
+      } catch (error) {
+        console.error('Error loading participants:', error);
+      }
+      setLoading(false);
+    };
+
+    loadParticipants();
+  }, [meetingId]);
+
+  if (loading) {
+    return (
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+          <div className="space-y-2">
+            <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const acceptedParticipants = participants.filter(p => p.response_status === 'accepted');
+  const pendingParticipants = participants.filter(p => p.response_status === 'pending');
+  const declinedParticipants = participants.filter(p => p.response_status === 'declined');
+
+  return (
+    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+      <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+        <UsersIcon className="w-4 h-4" />
+        Group Participants ({participants.length})
+      </h4>
+      
+      <div className="space-y-3">
+        {/* Accepted participants */}
+        {acceptedParticipants.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-sm font-medium text-green-700">
+                Accepted ({acceptedParticipants.length})
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 ml-5">
+              {acceptedParticipants.map(participant => (
+                <div key={participant.id} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="font-medium">{participant.participant?.full_name}</span>
+                  {participant.participant_id === currentUserId && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">(You)</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pending participants */}
+        {pendingParticipants.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+              <span className="text-sm font-medium text-orange-700">
+                Pending ({pendingParticipants.length})
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 ml-5">
+              {pendingParticipants.map(participant => (
+                <div key={participant.id} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="font-medium">{participant.participant?.full_name}</span>
+                  {participant.participant_id === currentUserId && (
+                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">(You - Respond below)</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Declined participants */}
+        {declinedParticipants.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+              <span className="text-sm font-medium text-red-700">
+                Declined ({declinedParticipants.length})
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 ml-5">
+              {declinedParticipants.map(participant => (
+                <div key={participant.id} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="font-medium">{participant.participant?.full_name}</span>
+                  {participant.participant_id === currentUserId && (
+                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">(You)</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div className="mt-4">
+        <div className="flex justify-between text-xs text-gray-600 mb-1">
+          <span>Acceptance Progress</span>
+          <span>{acceptedParticipants.length}/{participants.length} accepted</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div 
+            className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+            style={{ width: `${(acceptedParticipants.length / participants.length) * 100}%` }}
+          ></div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Meetings() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -53,6 +185,10 @@ export default function Meetings() {
   const [saving, setSaving] = useState(false);
   const [cancellingMeeting, setCancellingMeeting] = useState(null);
   const [cancelling, setCancelling] = useState(false);
+  
+  // Connection-related state
+  const [connectionRequests, setConnectionRequests] = useState([]);
+  const [respondingToConnection, setRespondingToConnection] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -178,10 +314,11 @@ export default function Meetings() {
       setCurrentUser(user);
 
       // Fetch all necessary data concurrently
-      const [allUsers, allRequests, allBookings] = await Promise.all([
+      const [allUsers, allRequests, allBookings, userConnections] = await Promise.all([
         User.list(),
         MeetingRequest.list('-created_date'),
         VenueBooking.list(),
+        Connection.getUserConnections(user.id).catch(() => ({ connections: { pending_received: [] } }))
       ]);
 
       // Create user lookup
@@ -191,28 +328,77 @@ export default function Meetings() {
       });
       setUsers(userLookup);
 
-      // Separate requests into new categories
-      const pending = allRequests.filter(req =>
-        (req.recipient_ids || []).includes(user.id) && req.status === 'pending'
-      );
+      // Get participant data for current user to filter by individual status
+      const userParticipantData = {};
+      
+      // Fetch participant status for all meetings where user is involved
+      const userMeetingIds = allRequests
+        .filter(req => req.requester_id === user.id || (req.recipient_ids || []).includes(user.id))
+        .map(req => req.id);
+        
+      if (userMeetingIds.length > 0) {
+        try {
+          const { data: participantRecords } = await supabase
+            .from('meeting_participants')
+            .select('meeting_request_id, response_status, participant_type')
+            .eq('participant_id', user.id)
+            .in('meeting_request_id', userMeetingIds);
+            
+          // Create lookup map
+          (participantRecords || []).forEach(record => {
+            userParticipantData[record.meeting_request_id] = record;
+          });
+        } catch (error) {
+          console.error('Error loading participant data:', error);
+        }
+      }
 
-      const history = allRequests.filter(req => {
-        const isMyRequest = req.requester_id === user.id || (req.recipient_ids || []).includes(user.id);
-        const isNotAccepted = req.status !== 'accepted';
-        const isNotPendingIncoming = !((req.recipient_ids || []).includes(user.id) && req.status === 'pending');
-
-        return isMyRequest && isNotAccepted && isNotPendingIncoming;
+      // Filter meetings based on individual participant status
+      const pending = allRequests.filter(req => {
+        const isRecipient = (req.recipient_ids || []).includes(user.id);
+        if (!isRecipient) return false;
+        
+        const participantStatus = userParticipantData[req.id];
+        return participantStatus?.response_status === 'pending';
       });
 
-      const accepted = allRequests.filter(req =>
-        ((req.recipient_ids || []).includes(user.id) || req.requester_id === user.id) &&
-        req.status === 'accepted'
-      );
+      const history = allRequests.filter(req => {
+        const isParticipant = req.requester_id === user.id || (req.recipient_ids || []).includes(user.id);
+        if (!isParticipant) return false;
+        
+        const participantStatus = userParticipantData[req.id];
+        
+        // For requesters: show in history if meeting is declined/cancelled or if they cancelled it
+        if (req.requester_id === user.id) {
+          return req.status === 'declined' || req.status === 'cancelled';
+        }
+        
+        // For recipients: show in history if they declined
+        return participantStatus?.response_status === 'declined';
+      });
+
+      const accepted = allRequests.filter(req => {
+        const isParticipant = req.requester_id === user.id || (req.recipient_ids || []).includes(user.id);
+        if (!isParticipant) return false;
+        
+        const participantStatus = userParticipantData[req.id];
+        
+        // For requesters: always accepted (auto-accepted when creating)
+        if (req.requester_id === user.id) {
+          return participantStatus?.response_status === 'accepted';
+        }
+        
+        // For recipients: show in accepted if they accepted
+        return participantStatus?.response_status === 'accepted';
+      });
 
       setPendingRequests(pending);
       setRequestHistory(history);
       setAcceptedMeetings(accepted);
       setBookings(allBookings);
+      
+      // Set pending connection requests
+      setConnectionRequests(userConnections.connections.pending_received || []);
 
     } catch (error) {
       console.error("Error loading meetings:", error);
@@ -223,27 +409,78 @@ export default function Meetings() {
   const handleRequestResponse = async (requestId, response) => {
     try {
       const request = await MeetingRequest.get(requestId);
-      await MeetingRequest.update(requestId, { status: response });
+      
+      // Use new participant-based response system
+      const result = await MeetingRequest.respondAsParticipant(requestId, currentUser.id, response);
+      
+      if (result && result.success) {
+        // Create notification for requester
+        if (request && request.requester_id) {
+          const requester = users[request.requester_id] || await User.get(request.requester_id);
 
-      if (request && request.requester_id) {
-        const requester = users[request.requester_id] || await User.get(request.requester_id);
+          if (requester && requester.notification_preferences?.request_status_update !== false) {
+            // Get meeting status info for better notification
+            const statusInfo = await MeetingRequest.getAcceptanceStatus(requestId);
+            
+            let notificationBody;
+            if (request.meeting_type === 'single') {
+              notificationBody = `${currentUser.full_name} has ${response} your meeting request regarding "${request.proposed_topic}".`;
+            } else {
+              // Group meeting - provide more context
+              const acceptedCount = statusInfo?.accepted_count || 0;
+              const totalCount = statusInfo?.total_participants || 0;
+              notificationBody = `${currentUser.full_name} has ${response} your group meeting request "${request.proposed_topic}". ${acceptedCount}/${totalCount} participants have accepted.`;
+            }
 
-        if (requester && requester.notification_preferences?.request_status_update !== false) {
-          await Notification.create({
-            user_id: request.requester_id,
-            type: response === 'accepted' ? 'request_accepted' : 'request_declined',
-            title: `Meeting Request ${response === 'accepted' ? 'Accepted' : 'Declined'}`,
-            body: `${currentUser.full_name} has ${response} your meeting request regarding "${request.proposed_topic}".`,
-            link: createPageUrl("Meetings"),
-            related_entity_id: requestId,
-          });
+            await Notification.create({
+              user_id: request.requester_id,
+              type: response === 'accepted' ? 'request_accepted' : 'request_declined',
+              title: `Meeting Request ${response === 'accepted' ? 'Accepted' : 'Declined'}`,
+              body: notificationBody,
+              link: createPageUrl("Meetings"),
+              related_entity_id: requestId,
+            });
+          }
         }
+      } else {
+        throw new Error(result?.message || 'Failed to respond to meeting request');
       }
 
       await loadData();
     } catch (error) {
       console.error("Error updating request:", error);
+      alert(error.message || 'Failed to respond to meeting request');
     }
+  };
+
+  const handleConnectionResponse = async (connectionId, response) => {
+    setRespondingToConnection(true);
+    try {
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:3000/api/respond-connection-request'
+        : '/api/respond-connection-request';
+        
+      const apiResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          connection_id: connectionId,
+          response: response
+        })
+      });
+      
+      if (!apiResponse.ok) {
+        const error = await apiResponse.json();
+        throw new Error(error.error || 'Failed to respond to connection request');
+      }
+
+      // Reload data to refresh connection requests
+      await loadData();
+    } catch (error) {
+      console.error("Error responding to connection request:", error);
+      alert(error.message || 'Failed to respond to connection request');
+    }
+    setRespondingToConnection(false);
   };
 
   const getStatusColor = (status) => {
@@ -296,9 +533,17 @@ export default function Meetings() {
           <TabsList className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
             <TabsTrigger value="pending" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
               <div className="flex items-center gap-2">
-                Pending Approval ({pendingRequests.length})
+                Meeting Requests ({pendingRequests.length})
                 {pendingRequests.length > 0 && (
                   <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                )}
+              </div>
+            </TabsTrigger>
+            <TabsTrigger value="connections" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <div className="flex items-center gap-2">
+                Connection Requests ({connectionRequests.length})
+                {connectionRequests.length > 0 && (
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 )}
               </div>
             </TabsTrigger>
@@ -392,6 +637,15 @@ export default function Meetings() {
                             </div>
                           )}
 
+                          {/* Group meeting participant status */}
+                          {request.meeting_type === 'multi' && (
+                            <GroupParticipantStatus 
+                              meetingId={request.id} 
+                              currentUserId={currentUser.id}
+                              users={users}
+                            />
+                          )}
+
                           {/* Action buttons */}
                           <div className="flex justify-end gap-3 pt-4 border-t">
                             <Button
@@ -423,6 +677,126 @@ export default function Meetings() {
                   <h3 className="text-lg font-medium text-slate-900 mb-2">All caught up!</h3>
                   <p className="text-slate-600">You don't have any pending meeting requests</p>
                   <p className="text-sm text-slate-500 mt-2">New requests from other delegates will appear here</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Connection Requests */}
+          <TabsContent value="connections" className="space-y-4">
+            {connectionRequests.length > 0 ? (
+              <>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-green-600" />
+                    <h3 className="font-semibold text-green-900">Connection Requests</h3>
+                  </div>
+                  <p className="text-sm text-green-800 mt-1">
+                    You have {connectionRequests.length} connection request{connectionRequests.length !== 1 ? 's' : ''} awaiting your response.
+                    Accept connections to enable meeting requests with these delegates.
+                  </p>
+                </div>
+
+                {connectionRequests.map((connection) => {
+                  const requester = connection.other_user;
+                  return (
+                    <Card key={connection.id} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg border-l-4 border-l-green-500">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col gap-6">
+                          {/* Header with delegate info */}
+                          <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold text-lg">
+                                {requester?.full_name?.charAt(0)?.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-xl font-semibold text-slate-900 mb-1">
+                                Connection Request from {requester?.full_name}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 mb-2">
+                                <div className="flex items-center gap-1">
+                                  <Building2 className="w-4 h-4" />
+                                  <span>{requester?.job_title} at {requester?.organization}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Globe className="w-4 h-4" />
+                                  <span>{requester?.country}</span>
+                                </div>
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                Received {format(new Date(connection.created_date), 'MMMM d, yyyy \'at\' h:mm a')}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Connection message */}
+                          {connection.connection_message && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                              <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                                <MessageSquare className="w-4 h-4" />
+                                Message from {requester?.full_name}
+                              </h4>
+                              <p className="text-green-800 italic">"{connection.connection_message}"</p>
+                            </div>
+                          )}
+
+                          {/* Info about connection benefits */}
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h4 className="font-medium text-blue-900 mb-2">What happens when you connect?</h4>
+                            <ul className="text-sm text-blue-800 space-y-1">
+                              <li>• You can send meeting requests to each other</li>
+                              <li>• They can see your profile and send you meeting requests</li>
+                              <li>• You'll both appear in each other's meeting request dialogs</li>
+                            </ul>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex justify-end gap-3 pt-4 border-t">
+                            <Button
+                              variant="outline"
+                              onClick={() => handleConnectionResponse(connection.id, 'declined')}
+                              disabled={respondingToConnection}
+                              className="border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300 px-6"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Decline
+                            </Button>
+                            <Button
+                              onClick={() => handleConnectionResponse(connection.id, 'accepted')}
+                              disabled={respondingToConnection}
+                              className="bg-green-600 hover:bg-green-700 px-8"
+                            >
+                              {respondingToConnection ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  Processing...
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="w-4 h-4 mr-2" />
+                                  Accept Connection
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </>
+            ) : (
+              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+                <CardContent className="p-12 text-center">
+                  <UserPlus className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-slate-900 mb-2">No connection requests</h3>
+                  <p className="text-slate-600">
+                    When other delegates want to connect with you, their requests will appear here.
+                  </p>
+                  <p className="text-sm text-slate-500 mt-2">
+                    You can also visit the Delegates page to send connection requests to others.
+                  </p>
                 </CardContent>
               </Card>
             )}

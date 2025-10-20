@@ -42,7 +42,7 @@ export default function ProtectedRoute({ children }) {
           .eq('id', session.user.id)
           .single();
 
-        if (!profileError && userProfile?.is_password_reset) {
+        if (!profileError && !userProfile?.is_password_reset) {
           setNeedsPasswordReset(true);
         }
       }

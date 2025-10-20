@@ -86,7 +86,7 @@ export default async function handler(req, res) {
         email: email,
         full_name: '',
         role: 'user',
-        is_password_reset: true, // New users need to reset password
+        is_password_reset: false, // New users need to reset password
         created_by: email
       });
 

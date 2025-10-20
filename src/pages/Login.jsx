@@ -70,7 +70,7 @@ export default function Login() {
       }
 
       // If user needs password reset, show modal
-      if (userProfile?.is_password_reset) {
+      if (!userProfile?.is_password_reset) {
         setShowPasswordResetModal(true);
       } else {
         // Normal login for existing users

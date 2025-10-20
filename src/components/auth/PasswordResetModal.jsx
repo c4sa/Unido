@@ -77,7 +77,7 @@ export default function PasswordResetModal({ onPasswordReset }) {
       // Update user profile to mark password as reset
       const { error: profileError } = await supabase
         .from('users')
-        .update({ is_password_reset: false })
+        .update({ is_password_reset: true })
         .eq('id', user.id);
 
       if (profileError) {

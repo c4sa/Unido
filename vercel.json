@@ -17,6 +17,21 @@
     },
     "api/update-password-after-otp.js": {
       "maxDuration": 10
+    },
+    "api/send-connection-request.js": {
+      "maxDuration": 10
+    },
+    "api/respond-connection-request.js": {
+      "maxDuration": 10
+    },
+    "api/user-connections.js": {
+      "maxDuration": 10
+    },
+    "api/check-connection.js": {
+      "maxDuration": 10
+    },
+    "api/validate-group-connections.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [
