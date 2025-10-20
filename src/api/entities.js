@@ -746,6 +746,94 @@ class ChatMessageEntity extends SupabaseEntity {
       throw error;
     }
   }
+
+  /**
+   * Send direct message between connected delegates
+   */
+  async sendDirectMessage(recipientId, message) {
+    const apiUrl = import.meta.env.DEV 
+      ? 'http://localhost:3000/api/send-direct-message'
+      : '/api/send-direct-message';
+      
+    // Get current user ID from auth
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      throw new Error('Not authenticated');
+    }
+      
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        sender_id: authUser.id,
+        recipient_id: recipientId,
+        message: message
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to send direct message');
+    }
+    
+    return await response.json();
+  }
+
+  /**
+   * Get direct messages between current user and another delegate
+   */
+  async getDirectMessages(otherUserId) {
+    const apiUrl = import.meta.env.DEV 
+      ? 'http://localhost:3000/api/get-direct-messages'
+      : '/api/get-direct-messages';
+      
+    // Get current user ID from auth
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      throw new Error('Not authenticated');
+    }
+      
+    const response = await fetch(`${apiUrl}?user1_id=${authUser.id}&user2_id=${otherUserId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get direct messages');
+    }
+    
+    const result = await response.json();
+    return result.messages || [];
+  }
+
+  /**
+   * Check if current user can send direct messages to another delegate
+   */
+  async canDirectMessage(otherUserId) {
+    const apiUrl = import.meta.env.DEV 
+      ? 'http://localhost:3000/api/check-direct-message-permission'
+      : '/api/check-direct-message-permission';
+      
+    // Get current user ID from auth
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      throw new Error('Not authenticated');
+    }
+      
+    const response = await fetch(`${apiUrl}?user1_id=${authUser.id}&user2_id=${otherUserId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to check direct message permission');
+    }
+    
+    const result = await response.json();
+    return result.can_direct_message || false;
+  }
 }
 
 /**

@@ -936,6 +936,265 @@ app.post('/api/validate-group-connections', async (req, res) => {
   }
 });
 
+// ===================================================== 
+// DIRECT MESSAGING ENDPOINTS
+// ===================================================== 
+
+// Send direct message endpoint
+app.post('/api/send-direct-message', async (req, res) => {
+  try {
+    const { sender_id, recipient_id, message } = req.body;
+
+    // Validate required fields
+    if (!sender_id || !recipient_id || !message) {
+      return res.status(400).json({ error: 'Sender ID, recipient ID, and message are required' });
+    }
+
+    // Validate message length
+    if (message.length < 1 || message.length > 5000) {
+      return res.status(400).json({ error: 'Message must be between 1 and 5000 characters' });
+    }
+
+    // Prevent self-messaging
+    if (sender_id === recipient_id) {
+      return res.status(400).json({ error: 'Cannot send message to yourself' });
+    }
+
+    // Check if users are connected using the database function
+    const { data: canMessage, error: connectionError } = await supabase
+      .rpc('can_users_direct_message', {
+        user1_id: sender_id,
+        user2_id: recipient_id
+      });
+
+    if (connectionError) {
+      console.error('Error checking connection:', connectionError);
+      return res.status(500).json({ error: 'Failed to verify connection status' });
+    }
+
+    if (!canMessage) {
+      return res.status(403).json({ error: 'You must be connected to this delegate to send direct messages' });
+    }
+
+    // Create the direct message
+    const { data: newMessage, error: messageError } = await supabase
+      .from('chat_messages')
+      .insert({
+        sender_id: sender_id,
+        recipient_id: recipient_id,
+        message: message,
+        message_type: 'text',
+        message_context: 'direct',
+        meeting_request_id: null // Explicitly set to null for direct messages
+      })
+      .select(`
+        *,
+        sender:users!sender_id (
+          id,
+          full_name
+        ),
+        recipient:users!recipient_id (
+          id,
+          full_name
+        )
+      `)
+      .single();
+
+    if (messageError) {
+      console.error('Error creating message:', messageError);
+      return res.status(500).json({ error: 'Failed to send message' });
+    }
+
+    // Get recipient details for notification
+    const { data: recipient, error: recipientError } = await supabase
+      .from('users')
+      .select('full_name, notification_preferences')
+      .eq('id', recipient_id)
+      .single();
+
+    if (!recipientError && recipient) {
+      // Create notification for recipient (non-blocking)
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: recipient_id,
+          type: 'new_message',
+          title: 'New Direct Message',
+          body: `You have a new direct message from ${newMessage.sender.full_name}.`,
+          link: `/chat?type=direct&delegate=${sender_id}`,
+          related_entity_id: newMessage.id
+        });
+
+      if (notificationError) {
+        console.error('Error creating notification:', notificationError);
+        // Don't fail the message sending for notification errors
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Direct message sent successfully',
+      data: newMessage
+    });
+
+  } catch (error) {
+    console.error('Send direct message error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to send direct message', 
+      details: error.message 
+    });
+  }
+});
+
+// Get direct messages endpoint
+app.get('/api/get-direct-messages', async (req, res) => {
+  try {
+    const { user1_id, user2_id } = req.query;
+
+    // Validate required fields
+    if (!user1_id || !user2_id) {
+      return res.status(400).json({ error: 'Both user IDs are required' });
+    }
+
+    // Prevent querying messages with self
+    if (user1_id === user2_id) {
+      return res.status(400).json({ error: 'Cannot get messages with yourself' });
+    }
+
+    // Check if users are connected using the database function
+    const { data: canMessage, error: connectionError } = await supabase
+      .rpc('can_users_direct_message', {
+        user1_id: user1_id,
+        user2_id: user2_id
+      });
+
+    if (connectionError) {
+      console.error('Error checking connection:', connectionError);
+      return res.status(500).json({ error: 'Failed to verify connection status' });
+    }
+
+    if (!canMessage) {
+      return res.status(403).json({ error: 'You must be connected to this delegate to view direct messages' });
+    }
+
+    // Get direct messages between the two users (bidirectional)
+    const { data: messages, error: messagesError } = await supabase
+      .from('chat_messages')
+      .select(`
+        *,
+        sender:users!sender_id (
+          id,
+          full_name
+        ),
+        recipient:users!recipient_id (
+          id,
+          full_name
+        )
+      `)
+      .eq('message_context', 'direct')
+      .or(`and(sender_id.eq.${user1_id},recipient_id.eq.${user2_id}),and(sender_id.eq.${user2_id},recipient_id.eq.${user1_id})`)
+      .order('created_date', { ascending: true });
+
+    if (messagesError) {
+      console.error('Error fetching messages:', messagesError);
+      return res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+
+    // Mark messages as read for the requesting user (user1_id)
+    const unreadMessages = (messages || []).filter(
+      msg => msg.recipient_id === user1_id && !msg.read_status
+    );
+
+    if (unreadMessages.length > 0) {
+      const unreadMessageIds = unreadMessages.map(msg => msg.id);
+      
+      const { error: updateError } = await supabase
+        .from('chat_messages')
+        .update({ read_status: true })
+        .in('id', unreadMessageIds);
+
+      if (updateError) {
+        console.error('Error marking messages as read:', updateError);
+        // Don't fail the request for read status update errors
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      messages: messages || [],
+      total_count: (messages || []).length,
+      unread_count: unreadMessages.length
+    });
+
+  } catch (error) {
+    console.error('Get direct messages error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to get direct messages', 
+      details: error.message 
+    });
+  }
+});
+
+// Check direct message permission endpoint
+app.get('/api/check-direct-message-permission', async (req, res) => {
+  try {
+    const { user1_id, user2_id } = req.query;
+
+    // Validate required fields
+    if (!user1_id || !user2_id) {
+      return res.status(400).json({ error: 'Both user IDs are required' });
+    }
+
+    // Prevent checking permission with self
+    if (user1_id === user2_id) {
+      return res.status(400).json({ error: 'Cannot check permission with yourself' });
+    }
+
+    // Check if users are connected using the database function
+    const { data: canMessage, error: connectionError } = await supabase
+      .rpc('can_users_direct_message', {
+        user1_id: user1_id,
+        user2_id: user2_id
+      });
+
+    if (connectionError) {
+      console.error('Error checking connection:', connectionError);
+      return res.status(500).json({ error: 'Failed to verify connection status' });
+    }
+
+    // Get connection details for additional context
+    let connectionDetails = null;
+    if (canMessage) {
+      const { data: connection, error: detailsError } = await supabase
+        .from('delegate_connections')
+        .select('id, status, created_date')
+        .eq('status', 'accepted')
+        .or(`and(requester_id.eq.${user1_id},recipient_id.eq.${user2_id}),and(requester_id.eq.${user2_id},recipient_id.eq.${user1_id})`)
+        .single();
+
+      if (!detailsError && connection) {
+        connectionDetails = connection;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      can_direct_message: canMessage,
+      connection_details: connectionDetails,
+      message: canMessage 
+        ? 'Users are connected and can send direct messages'
+        : 'Users are not connected. A connection request must be accepted first.'
+    });
+
+  } catch (error) {
+    console.error('Check direct message permission error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to check direct message permission', 
+      details: error.message 
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -954,6 +1213,9 @@ app.listen(PORT, () => {
   console.log(`👥 User connections API available at http://localhost:${PORT}/api/user-connections`);
   console.log(`🔍 Check connection API available at http://localhost:${PORT}/api/check-connection`);
   console.log(`✔️  Group validation API available at http://localhost:${PORT}/api/validate-group-connections`);
+  console.log(`💬 Send direct message API available at http://localhost:${PORT}/api/send-direct-message`);
+  console.log(`📨 Get direct messages API available at http://localhost:${PORT}/api/get-direct-messages`);
+  console.log(`🔐 Check direct message permission API available at http://localhost:${PORT}/api/check-direct-message-permission`);
   
   if (!smtpConfig.user || !smtpConfig.pass) {
     console.log('⚠️  SMTP not configured - emails will be simulated');

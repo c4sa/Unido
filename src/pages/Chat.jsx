@@ -71,10 +71,15 @@ export default function Chat() {
         // Meeting-based chat: use meeting messages method
         chatMessages = await ChatMessage.getMeetingMessages(selectedMeetingId, currentUser.id);
       } else if (selectedChatType === 'direct') {
-        // Direct delegate chat: use traditional filter method for direct messages
-        // For now, we'll show an empty state since direct messaging isn't fully implemented
-        // This prevents the error and allows the UI to work properly
-        chatMessages = [];
+        // Direct delegate chat: validate that the selected delegate is actually connected
+        const isConnectedDelegate = connectedDelegates.some(delegate => delegate.id === selectedMeetingId);
+        if (!isConnectedDelegate) {
+          console.warn('Selected delegate is not in connected delegates list, skipping direct message load');
+          return;
+        }
+        // Direct delegate chat: use new direct messaging method
+        // selectedMeetingId contains the delegate ID for direct chats
+        chatMessages = await ChatMessage.getDirectMessages(selectedMeetingId);
       }
 
       // Only update state if messages have actually changed
@@ -115,7 +120,7 @@ export default function Chat() {
         }
       }
     }
-  }, [selectedMeetingId, selectedChatType, currentUser?.id, messages]);
+  }, [selectedMeetingId, selectedChatType, currentUser?.id, messages, connectedDelegates]);
 
   useEffect(() => {
     if (selectedMeetingId) {
@@ -330,10 +335,9 @@ export default function Chat() {
           }
         }
       } else if (selectedChatType === 'direct') {
-        // Direct delegate chat: Show message that this feature is coming soon
-        alert('Direct messaging with connected delegates is coming soon! For now, please use meeting-based chats.');
-        setSending(false);
-        return;
+        // Direct delegate chat: send direct message
+        // selectedMeetingId contains the delegate ID for direct chats
+        await ChatMessage.sendDirectMessage(selectedMeetingId, messageText);
       }
 
       // Optimized message reload - only reload if needed
@@ -642,12 +646,12 @@ export default function Chat() {
                             </>
                           ) : (
                             <>
-                              <p className="text-slate-600">Direct messaging coming soon!</p>
+                              <p className="text-slate-600">Start your direct conversation</p>
                               <p className="text-sm text-slate-500">
-                                Direct messaging with {chatPartner.full_name} will be available in a future update.
+                                Send a message to begin chatting directly with {chatPartner?.full_name}
                               </p>
                               <p className="text-xs text-slate-400 mt-2">
-                                For now, please use meeting-based chats to communicate.
+                                You are connected delegates and can message each other directly.
                               </p>
                             </>
                           )}
@@ -664,17 +668,13 @@ export default function Chat() {
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder={
-                          selectedChatType === 'meeting' 
-                            ? "Type your message..." 
-                            : "Direct messaging coming soon..."
-                        }
+                        placeholder="Type your message..."
                         className="flex-1"
-                        disabled={sending || selectedChatType === 'direct'}
+                        disabled={sending}
                       />
                       <Button
                         onClick={sendMessage}
-                        disabled={sending || !newMessage.trim() || selectedChatType === 'direct'}
+                        disabled={sending || !newMessage.trim()}
                         className="bg-blue-600 hover:bg-blue-700"
                       >
                         {sending ? (
@@ -684,11 +684,6 @@ export default function Chat() {
                         )}
                       </Button>
                     </div>
-                    {selectedChatType === 'direct' && (
-                      <p className="text-xs text-slate-500 mt-2 text-center">
-                        Direct messaging feature is coming soon. Use meeting-based chats for now.
-                      </p>
-                    )}
                   </div>
                 </>
               ) : (
