@@ -186,7 +186,7 @@ export default function Venues() {
                 currentUser={currentUser}
                 acceptedMeetings={acceptedMeetings}
                 onTimeSlotClick={() => {}}
-                isRoomAvailable={() => false}
+                isRoomAvailable={() => true}
               />
             ) : (
               <div className="text-center py-12">

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -430,6 +431,18 @@ export default function Rooms() {
           
           {/* Schedule View */}
           <TabsContent value="schedule" className="mt-6">
+            <div className="mb-4 flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="schedule-date">Select Date:</Label>
+                <Input
+                  id="schedule-date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-auto"
+                />
+              </div>
+            </div>
             <ScheduleView 
               rooms={rooms}
               bookings={bookings}
@@ -438,7 +451,7 @@ export default function Rooms() {
               users={users}
               currentUser={currentUser}
               acceptedMeetings={[]}
-              isRoomAvailable={() => false}
+              isRoomAvailable={() => true}
             />
           </TabsContent>
         </Tabs>

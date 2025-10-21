@@ -60,7 +60,22 @@ export default function ScheduleView({
   };
 
   const canBookSlot = (roomId, timeSlot) => {
-    if (!selectedMeeting && !editingBooking) return false;
+    // Check if room is active first
+    const room = rooms.find(r => r.id === roomId);
+    if (!room || !room.is_active) {
+      return false;
+    }
+    
+    // Check isRoomAvailable prop if provided
+    if (isRoomAvailable && !isRoomAvailable(roomId)) {
+      return false;
+    }
+    
+    // For General Schedule view (no selectedMeeting or editingBooking), 
+    // show availability based on whether slot is booked
+    if (!selectedMeeting && !editingBooking) {
+      return !isSlotBooked(roomId, timeSlot);
+    }
     
     const currentDuration = editingBooking ? editingBooking.duration_minutes : selectedDuration;
     const slotStart = new Date(`${selectedDate}T${timeSlot}`);
@@ -133,20 +148,30 @@ export default function ScheduleView({
           {rooms.map((room) => (
             <div key={room.id} className="grid grid-cols-[200px,repeat(25,minmax(60px,1fr))] gap-1 mb-2">
               {/* Room Info */}
-              <div className="p-3 bg-slate-50 rounded-lg flex flex-col justify-center">
-                <h3 className="font-semibold text-sm text-slate-900">{room.name}</h3>
-                <div className="flex items-center gap-1 text-xs text-slate-600 mt-1">
+              <div className={`p-3 rounded-lg flex flex-col justify-center ${!room.is_active ? 'bg-slate-100 opacity-50' : 'bg-slate-50'}`}>
+                <h3 className={`font-semibold text-sm ${!room.is_active ? 'text-slate-500' : 'text-slate-900'}`}>
+                  {room.name}
+                  {!room.is_active && ' (Inactive)'}
+                </h3>
+                <div className={`flex items-center gap-1 text-xs mt-1 ${!room.is_active ? 'text-slate-400' : 'text-slate-600'}`}>
                   <Users className="w-3 h-3" />
                   <span>{room.capacity}</span>
                   <MapPin className="w-3 h-3 ml-1" />
                   <span>Floor {room.floor}</span>
                 </div>
-                <Badge 
-                  variant={room.type === 'small' ? 'secondary' : 'default'} 
-                  className="mt-2 text-xs self-start"
-                >
-                  {room.type}
-                </Badge>
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge 
+                    variant={room.type === 'small' ? 'secondary' : 'default'} 
+                    className="text-xs"
+                  >
+                    {room.type}
+                  </Badge>
+                  {!room.is_active && (
+                    <Badge variant="outline" className="text-xs text-slate-500 border-slate-300">
+                      Not Available
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               {/* Time Slots */}
@@ -156,13 +181,23 @@ export default function ScheduleView({
                 const canBook = canBookSlot(room.id, timeSlot);
                 
                 let bookingParticipantsDisplay = '';
-                if (booking && booking.meeting_request_id) {
-                  const participantsList = getMeetingParticipants(booking.meeting_request_id);
-                  
-                  if (participantsList) {
-                    bookingParticipantsDisplay = ` (${participantsList})`;
-                  } else if (currentUser && users[booking.booked_by]?.id === currentUser.id) {
-                    bookingParticipantsDisplay = ' (You)';
+                if (booking) {
+                  if (booking.meeting_request_id) {
+                    // Meeting booking
+                    const participantsList = getMeetingParticipants(booking.meeting_request_id);
+                    
+                    if (participantsList) {
+                      bookingParticipantsDisplay = ` (${participantsList})`;
+                    } else if (currentUser && users[booking.booked_by]?.id === currentUser.id) {
+                      bookingParticipantsDisplay = ' (You)';
+                    }
+                  } else if (booking.booking_type === 'private') {
+                    // Private booking
+                    if (currentUser && users[booking.booked_by]?.id === currentUser.id) {
+                      bookingParticipantsDisplay = ' (You)';
+                    } else {
+                      bookingParticipantsDisplay = ' (Private)';
+                    }
                   }
                 }
 
@@ -177,14 +212,25 @@ export default function ScheduleView({
                               ? 'bg-orange-100 border border-orange-200' 
                               : 'bg-red-100 border border-red-200'
                       }`}
-                      title={booking ? `Booked${bookingParticipantsDisplay} - ${booking.room_name}` : 'Occupied'}
+                      title={booking ? 
+                        `Booked${bookingParticipantsDisplay} - ${booking.room_name}${booking.private_meeting_topic ? ` (${booking.private_meeting_topic})` : ''}` : 
+                        'Occupied'
+                      }
                     >
                       <div className={`text-xs font-medium truncate ${isCurrentEditingSlot ? 'text-orange-800' : 'text-red-800'}`}>
-                        {isCurrentEditingSlot ? 'Your Booking' : `Booked${bookingParticipantsDisplay}`}
+                        {isCurrentEditingSlot ? 'Your Booking' : 
+                         booking.booking_type === 'private' ? 
+                           `Private${bookingParticipantsDisplay}` : 
+                           `Booked${bookingParticipantsDisplay}`}
                       </div>
                       {booking && (
                         <div className={`text-xs truncate ${isCurrentEditingSlot ? 'text-orange-600' : 'text-red-600'}`}>
                           {format(new Date(booking.start_time), 'HH:mm')} - {format(new Date(booking.end_time), 'HH:mm')}
+                          {booking.private_meeting_topic && (
+                            <div className="text-xs opacity-75 mt-1 truncate">
+                              {booking.private_meeting_topic}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -202,11 +248,13 @@ export default function ScheduleView({
                         : 'bg-slate-50 border-slate-200 cursor-not-allowed opacity-60'
                     }`}
                     title={
-                      canBook 
-                        ? `Click to book ${room.name} at ${timeSlot} for ${editingBooking ? editingBooking.duration_minutes : selectedDuration} minutes`
-                        : (!selectedMeeting && !editingBooking)
-                          ? 'Select a meeting first or start editing'
-                          : 'Cannot book - insufficient available time'
+                      !room.is_active
+                        ? `${room.name} is inactive - not available for booking`
+                        : canBook 
+                          ? `Click to book ${room.name} at ${timeSlot} for ${editingBooking ? editingBooking.duration_minutes : selectedDuration} minutes`
+                          : (!selectedMeeting && !editingBooking)
+                            ? 'Select a meeting first or start editing'
+                            : 'Cannot book - insufficient available time'
                     }
                   >
                     <div className={`text-xs font-medium ${canBook ? 'text-green-800' : 'text-slate-500'}`}>
