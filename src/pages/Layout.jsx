@@ -3,6 +3,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import mainLogo from '../main_logo.svg';
 import { 
   LayoutDashboard, 
   User, 
@@ -177,14 +178,8 @@ export default function Layout({ children, currentPageName }) {
         <div className="flex flex-col h-full">
           {/* Logo Section */}
           <div className="p-8 border-b border-gray-100">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 tracking-tight">UNIConnect</h1>
-                <p className="text-sm text-gray-500 font-medium">Professional Network</p>
-              </div>
+            <div className="flex items-center justify-center">
+              <img src={mainLogo} alt="UNIConnect Logo" className="h-16 w-auto" />
             </div>
           </div>
           
