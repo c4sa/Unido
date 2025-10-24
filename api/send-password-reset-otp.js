@@ -83,8 +83,9 @@ export default async function handler(req, res) {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
+          <img src="${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
           <h1 style="color: #0064b0; margin: 0;">Reset Your Password</h1>
-          <p style="color: #666; margin: 10px 0 0 0;">UNIConnect Security Code</p>
+          <p style="color: #666; margin: 10px 0 0 0;">Unido Security Code</p>
         </div>
         
         <div style="background: #f8f9fa; padding: 30px; border-radius: 8px; margin: 20px 0;">
@@ -108,7 +109,7 @@ export default async function handler(req, res) {
         
         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
           <p style="color: #999; font-size: 12px; margin: 0;">
-            This is an automated message from UNIConnect. Please do not reply to this email.
+            This is an automated message from Unido. Please do not reply to this email.
           </p>
         </div>
       </div>
@@ -129,7 +130,7 @@ This is an automated message. Please do not reply.
     await transporter.sendMail({
       from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: email,
-      subject: 'Reset Your UNIConnect Password - Verification Code',
+      subject: 'Reset Your Unido Password - Verification Code',
       html,
       text
     });

@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   Calendar,
   User as UserIcon,
+  Users,
   AlertCircle
 } from "lucide-react";
 import { format } from "date-fns";
@@ -40,9 +41,8 @@ if (typeof window !== 'undefined') {
 export default function Chat() {
   const [currentUser, setCurrentUser] = useState(null);
   const [acceptedMeetings, setAcceptedMeetings] = useState([]);
-  const [connectedDelegates, setConnectedDelegates] = useState([]);
   const [selectedMeetingId, setSelectedMeetingId] = useState('');
-  const [selectedChatType, setSelectedChatType] = useState('meeting'); // 'meeting' or 'direct'
+  const [selectedChatType, setSelectedChatType] = useState('meeting'); // 'meeting' only
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [users, setUsers] = useState({});
@@ -67,20 +67,8 @@ export default function Chat() {
     try {
       let chatMessages = [];
 
-      if (selectedChatType === 'meeting') {
-        // Meeting-based chat: use meeting messages method
-        chatMessages = await ChatMessage.getMeetingMessages(selectedMeetingId, currentUser.id);
-      } else if (selectedChatType === 'direct') {
-        // Direct delegate chat: validate that the selected delegate is actually connected
-        const isConnectedDelegate = connectedDelegates.some(delegate => delegate.id === selectedMeetingId);
-        if (!isConnectedDelegate) {
-          console.warn('Selected delegate is not in connected delegates list, skipping direct message load');
-          return;
-        }
-        // Direct delegate chat: use new direct messaging method
-        // selectedMeetingId contains the delegate ID for direct chats
-        chatMessages = await ChatMessage.getDirectMessages(selectedMeetingId);
-      }
+      // Meeting-based chat: use meeting messages method
+      chatMessages = await ChatMessage.getMeetingMessages(selectedMeetingId, currentUser.id);
 
       // Only update state if messages have actually changed
       const currentMessageIds = messages.map(m => m.id).sort().join(',');
@@ -120,7 +108,7 @@ export default function Chat() {
         }
       }
     }
-  }, [selectedMeetingId, selectedChatType, currentUser?.id, messages, connectedDelegates]);
+  }, [selectedMeetingId, selectedChatType, currentUser?.id, messages]);
 
   useEffect(() => {
     if (selectedMeetingId) {
@@ -197,10 +185,9 @@ export default function Chat() {
       const user = await User.me();
       setCurrentUser(user);
 
-      const [allUsers, allRequests, userConnections] = await Promise.all([
+      const [allUsers, allRequests] = await Promise.all([
         User.list(),
-        MeetingRequest.list('-updated_date'),
-        Connection.getUserConnections(user.id).catch(() => ({ connections: { accepted: [] } }))
+        MeetingRequest.list('-updated_date')
       ]);
 
       // Create user lookup
@@ -235,17 +222,6 @@ export default function Chat() {
       }
 
       setAcceptedMeetings(chatEligibleMeetings);
-
-      // Load connected delegates for direct messaging
-      const connectedUserIds = new Set(
-        userConnections.connections.accepted.map(conn => conn.other_user?.id).filter(Boolean)
-      );
-      
-      const connected = allUsers.filter(delegate => 
-        connectedUserIds.has(delegate.id) && delegate.id !== user.id
-      );
-      
-      setConnectedDelegates(connected);
 
     } catch (error) {
       console.error("Error loading data:", error);
@@ -334,10 +310,6 @@ export default function Chat() {
             });
           }
         }
-      } else if (selectedChatType === 'direct') {
-        // Direct delegate chat: send direct message
-        // selectedMeetingId contains the delegate ID for direct chats
-        await ChatMessage.sendDirectMessage(selectedMeetingId, messageText);
       }
 
       // Optimized message reload - only reload if needed
@@ -379,16 +351,12 @@ export default function Chat() {
     ? acceptedMeetings.find(m => m.id === selectedMeetingId)
     : null;
     
-  const selectedDelegate = selectedChatType === 'direct'
-    ? connectedDelegates.find(d => d.id === selectedMeetingId)
-    : null;
-    
   // For group meetings, don't use chatPartner logic - handle separately
   const chatPartner = selectedMeeting && selectedMeeting.meeting_type !== 'multi' ? (
     selectedMeeting.requester_id === currentUser?.id
       ? users[(selectedMeeting.recipient_ids || [])[0]]
       : users[selectedMeeting.requester_id]
-  ) : selectedDelegate;
+  ) : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
@@ -449,7 +417,7 @@ export default function Chat() {
                             <div className="flex items-center gap-2 mb-1">
                               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-xs">
                                 {isGroup ? (
-                                  <UserIcon className="w-4 h-4 text-white" />
+                                  <Users className="w-4 h-4 text-white" />
                                 ) : (
                                   <span className="text-white font-semibold">
                                     {otherParty?.full_name?.charAt(0)?.toUpperCase()}
@@ -480,59 +448,12 @@ export default function Chat() {
                   )}
                 </div>
 
-                {/* Connected Delegates Section */}
-                <div>
-                  <h4 className="font-medium text-sm text-slate-700 mb-2 flex items-center gap-2">
-                    <UserIcon className="w-4 h-4" />
-                    Connected Delegates ({connectedDelegates.length})
-                  </h4>
-                  {connectedDelegates.length > 0 ? (
-                    <div className="space-y-2">
-                      {connectedDelegates.map((delegate) => (
-                        <div
-                          key={`delegate-${delegate.id}`}
-                          className={`p-3 rounded-lg cursor-pointer transition-colors border ${
-                            selectedMeetingId === delegate.id && selectedChatType === 'direct'
-                              ? 'bg-green-50 border-green-200'
-                              : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                          }`}
-                          onClick={() => {
-                            setSelectedMeetingId(delegate.id);
-                            setSelectedChatType('direct');
-                          }}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-xs">
-                              <span className="text-white font-semibold">
-                                {delegate.full_name?.charAt(0)?.toUpperCase()}
-                              </span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">
-                                {delegate.full_name}
-                              </p>
-                              <p className="text-xs text-slate-600 truncate">
-                                {delegate.organization}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <UserIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      <p className="text-slate-500 text-xs">No connected delegates</p>
-                    </div>
-                  )}
-                </div>
-
-                {acceptedMeetings.length === 0 && connectedDelegates.length === 0 && (
+                {acceptedMeetings.length === 0 && (
                   <div className="text-center py-8">
                     <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-600 font-medium">No conversations available</p>
                     <p className="text-slate-500 text-sm mt-1">
-                      Accept meeting requests or connect with delegates to start chatting
+                      Accept meeting requests to start chatting
                     </p>
                   </div>
                 )}
@@ -549,13 +470,9 @@ export default function Chat() {
                   <CardHeader className="border-b bg-slate-50 rounded-t-lg">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 bg-gradient-to-br ${
-                          selectedChatType === 'meeting' 
-                            ? 'from-blue-500 to-indigo-500' 
-                            : 'from-green-500 to-emerald-500'
-                        } rounded-full flex items-center justify-center`}>
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
                           {selectedMeeting && selectedMeeting.meeting_type === 'multi' ? (
-                            <UserIcon className="w-5 h-5 text-white" />
+                            <Users className="w-5 h-5 text-white" />
                           ) : (
                             <span className="text-white font-semibold">
                               {chatPartner.full_name?.charAt(0)?.toUpperCase()}
@@ -572,23 +489,15 @@ export default function Chat() {
                           <p className="text-sm text-slate-600">
                             {selectedMeeting && selectedMeeting.meeting_type === 'multi' 
                               ? `Group Meeting • ${(selectedMeeting.recipient_ids || []).length + 1} participants`
-                              : selectedChatType === 'meeting' 
-                                ? `${chatPartner.job_title} • ${selectedMeeting.proposed_topic}`
-                                : `${chatPartner.job_title} • ${chatPartner.organization}`
+                              : `${chatPartner.job_title} • ${selectedMeeting.proposed_topic}`
                             }
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        {selectedChatType === 'meeting' ? (
-                          <p className="text-xs text-slate-500">
-                            Meeting Duration: {selectedMeeting.proposed_duration} minutes
-                          </p>
-                        ) : (
-                          <p className="text-xs text-slate-500">
-                            Direct Chat • Connected Delegate
-                          </p>
-                        )}
+                        <p className="text-xs text-slate-500">
+                          Meeting Duration: {selectedMeeting.proposed_duration} minutes
+                        </p>
                       </div>
                     </div>
                   </CardHeader>

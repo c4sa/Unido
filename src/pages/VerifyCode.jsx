@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Shield, ArrowLeft } from 'lucide-react';
 import { sendCredentialsEmail } from '@/utils/emailService';
-import mainLogo from '../main_logo.svg';
+// Logo is now served from public folder
 
 export default function VerifyCode() {
   const navigate = useNavigate();
@@ -212,7 +212,7 @@ export default function VerifyCode() {
         email: email,
         full_name: '',
         role: 'user',
-        is_password_reset: true,
+        is_password_reset: false,
         created_by: email
       });
 
@@ -290,7 +290,7 @@ export default function VerifyCode() {
           <CardHeader className="pb-8 pt-8">
             {/* Header with Logo */}
             <div className="flex items-center justify-center mb-8">
-              <img src={mainLogo} alt="UNIConnect Logo" className="w-80 h-auto" />
+              <img src="/main_logo.svg" alt="Unido Logo" className="w-80 h-auto" />
             </div>
 
             {/* Welcome Section */}

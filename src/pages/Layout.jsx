@@ -3,7 +3,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import mainLogo from '../main_logo.svg';
+// Logo is now served from public folder
 import { 
   LayoutDashboard, 
   User, 
@@ -179,7 +179,7 @@ export default function Layout({ children, currentPageName }) {
           {/* Logo Section */}
           <div className="p-8 border-b border-gray-100">
             <div className="flex items-center justify-center">
-              <img src={mainLogo} alt="UNIConnect Logo" className="h-16 w-auto" />
+              <img src="/main_logo.svg" alt="Unido Logo" className="h-16 w-auto" />
             </div>
           </div>
           

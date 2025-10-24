@@ -32,15 +32,6 @@
     },
     "api/validate-group-connections.js": {
       "maxDuration": 10
-    },
-    "api/send-direct-message.js": {
-      "maxDuration": 10
-    },
-    "api/get-direct-messages.js": {
-      "maxDuration": 10
-    },
-    "api/check-direct-message-permission.js": {
-      "maxDuration": 10
     }
   },
   "rewrites": [

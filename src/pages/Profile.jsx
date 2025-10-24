@@ -351,7 +351,7 @@ export default function Profile() {
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h3 className="font-semibold text-blue-900 mb-2">Privacy Notice</h3>
               <p className="text-sm text-blue-800 mb-4">
-                By using UNIConnect, your profile information will be visible to other verified users
+                By using Unido, your profile information will be visible to other verified users
                 to facilitate professional networking. We implement enterprise-grade security measures and
                 comply with international data protection standards.
               </p>

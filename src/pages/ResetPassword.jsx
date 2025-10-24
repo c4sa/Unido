@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Lock, ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import mainLogo from '../main_logo.svg';
+// Logo is now served from public folder
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -141,7 +141,7 @@ export default function ResetPassword() {
           <CardHeader className="pb-8 pt-8">
             {/* Header with Logo */}
             <div className="flex items-center justify-center mb-8">
-              <img src={mainLogo} alt="UNIConnect Logo" className="w-80 h-auto" />
+              <img src="/main_logo.svg" alt="Unido Logo" className="w-80 h-auto" />
             </div>
 
             {/* Welcome Section */}

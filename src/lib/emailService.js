@@ -6,12 +6,31 @@
 // API Base URL - smart detection like reference project
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
+// Get the base URL for images in emails
+const getBaseUrl = () => {
+  // Check if we're in development mode
+  const isDev = import.meta.env.DEV || 
+                window.location.hostname === 'localhost' || 
+                window.location.hostname === '127.0.0.1' ||
+                window.location.hostname.includes('localhost');
+  
+  if (isDev) {
+    return 'http://localhost:5173';
+  }
+  
+  // In production, use the deployed URL
+  // You'll need to replace this with your actual Vercel URL
+  return 'https://your-app-name.vercel.app';
+};
+
 // Development fallback - simulate email sending
 const simulateEmailSending = async ({ to, subject, html, text }) => {
   console.log('📧 Simulating email sending (development mode):');
   console.log('To:', to);
   console.log('Subject:', subject);
-  console.log('HTML Preview:', html.substring(0, 100) + '...');
+  console.log('HTML Preview:', html.substring(0, 200) + '...');
+  console.log('🔍 Full HTML contains logo URL:', html.includes('main_logo.svg'));
+  console.log('🔍 Logo URL in HTML:', html.match(/src="[^"]*main_logo\.svg[^"]*"/)?.[0]);
   
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -66,10 +85,18 @@ export const emailService = {
 
   // Send credentials email (for passcode registration)
   async sendCredentialsEmail(email, tempPassword) {
+    const baseUrl = getBaseUrl();
+    console.log('🔍 Email Service Debug:');
+    console.log('- Environment DEV:', import.meta.env.DEV);
+    console.log('- Window location:', window.location?.hostname);
+    console.log('- Generated baseUrl:', baseUrl);
+    console.log('- Logo URL will be:', `${baseUrl}/main_logo.svg`);
+    
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #0064b0; margin: 0;">Welcome to UNIConnect</h1>
+          <img src="${baseUrl}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+          <h1 style="color: #0064b0; margin: 0;">Welcome to Unido</h1>
           <p style="color: #666; margin: 10px 0 0 0;">Professional Networking Platform</p>
         </div>
         
@@ -90,7 +117,7 @@ export const emailService = {
         <div style="text-align: center; margin: 30px 0;">
           <a href="${window.location.origin}/login" 
              style="display: inline-block; background: #0064b0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-            Login to UNIConnect
+            Login to Unido
           </a>
         </div>
         
@@ -121,7 +148,7 @@ If you did not request this account, please contact support.
     try {
       const result = await this.send({
         to: email,
-        subject: 'Welcome to UNIConnect - Your Account Credentials',
+        subject: 'Welcome to Unido - Your Account Credentials',
         html,
         text
       });
@@ -135,11 +162,13 @@ If you did not request this account, please contact support.
 
   // Send password reset confirmation
   async sendPasswordResetConfirmation(email) {
+    const baseUrl = getBaseUrl();
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
+          <img src="${baseUrl}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
           <h1 style="color: #0064b0; margin: 0;">Password Updated Successfully</h1>
-          <p style="color: #666; margin: 10px 0 0 0;">UNIConnect Security Notification</p>
+          <p style="color: #666; margin: 10px 0 0 0;">Unido Security Notification</p>
         </div>
         
         <div style="background: #d4edda; padding: 20px; border-radius: 8px; border: 1px solid #c3e6cb; margin: 20px 0;">
@@ -181,7 +210,7 @@ This is a security notification. If you did not make this change, please contact
     try {
       const result = await this.send({
         to: email,
-        subject: 'Password Updated Successfully - UNIConnect',
+        subject: 'Password Updated Successfully - Unido',
         html,
         text
       });
@@ -195,11 +224,13 @@ This is a security notification. If you did not make this change, please contact
 
   // Send password reset OTP email
   async sendPasswordResetOTP(email, otpCode) {
+    const baseUrl = getBaseUrl();
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
+          <img src="${baseUrl}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
           <h1 style="color: #0064b0; margin: 0;">Reset Your Password</h1>
-          <p style="color: #666; margin: 10px 0 0 0;">UNIConnect Security Code</p>
+          <p style="color: #666; margin: 10px 0 0 0;">Unido Security Code</p>
         </div>
         
         <div style="background: #f8f9fa; padding: 30px; border-radius: 8px; margin: 20px 0;">
@@ -223,7 +254,7 @@ This is a security notification. If you did not make this change, please contact
         
         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
           <p style="color: #999; font-size: 12px; margin: 0;">
-            This is an automated message from UNIConnect. Please do not reply to this email.
+            This is an automated message from Unido. Please do not reply to this email.
           </p>
         </div>
       </div>
@@ -244,7 +275,7 @@ This is an automated message. Please do not reply.
     try {
       const result = await this.send({
         to: email,
-        subject: 'Reset Your UNIConnect Password - Verification Code',
+        subject: 'Reset Your Unido Password - Verification Code',
         html,
         text
       });
@@ -258,17 +289,19 @@ This is an automated message. Please do not reply.
 
   // Send welcome email after password reset
   async sendWelcomeEmail(email, fullName) {
+    const baseUrl = getBaseUrl();
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #0064b0; margin: 0;">Welcome to UNIConnect!</h1>
+          <img src="${baseUrl}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+          <h1 style="color: #0064b0; margin: 0;">Welcome to Unido!</h1>
           <p style="color: #666; margin: 10px 0 0 0;">Your Professional Networking Journey Begins</p>
         </div>
         
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h2 style="color: #333; margin: 0 0 15px 0;">🎉 Account Setup Complete!</h2>
           <p style="margin: 10px 0;">Hello ${fullName || 'there'},</p>
-          <p style="margin: 10px 0;">Congratulations! You have successfully completed your account setup and are now ready to explore UNIConnect's professional networking features.</p>
+          <p style="margin: 10px 0;">Congratulations! You have successfully completed your account setup and are now ready to explore Unido's professional networking features.</p>
           
           <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #0064b0; margin: 15px 0;">
             <h3 style="margin: 0 0 10px 0; color: #0064b0;">What's Next?</h3>
@@ -294,18 +327,18 @@ This is an automated message. Please do not reply.
         </div>
         
         <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px; text-align: center; color: #666; font-size: 14px;">
-          <p style="margin: 5px 0;">Thank you for joining UNIConnect - where professional connections flourish.</p>
+          <p style="margin: 5px 0;">Thank you for joining Unido - where professional connections flourish.</p>
           <p style="margin: 5px 0;">If you have any questions, please don't hesitate to contact our support team.</p>
         </div>
       </div>
     `;
 
     const text = `
-Welcome to UNIConnect - Your Professional Networking Journey Begins!
+Welcome to Unido - Your Professional Networking Journey Begins!
 
 Hello ${fullName || 'there'},
 
-Congratulations! You have successfully completed your account setup and are now ready to explore UNIConnect's professional networking features.
+Congratulations! You have successfully completed your account setup and are now ready to explore Unido's professional networking features.
 
 What's Next?
 - Complete your professional profile
@@ -317,14 +350,14 @@ What's Next?
 Access your dashboard: ${window.location.origin}/dashboard
 Complete your profile: ${window.location.origin}/profile
 
-Thank you for joining UNIConnect - where professional connections flourish.
+Thank you for joining Unido - where professional connections flourish.
 If you have any questions, please don't hesitate to contact our support team.
     `;
 
     try {
       const result = await this.send({
         to: email,
-        subject: '🎉 Welcome to UNIConnect - Let\'s Get Started!',
+        subject: '🎉 Welcome to Unido - Let\'s Get Started!',
         html,
         text
       });
