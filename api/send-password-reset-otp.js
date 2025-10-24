@@ -74,7 +74,7 @@ export default async function handler(req, res) {
       const provider = process.env.EMAIL_PROVIDER || 'gmail';
       
       if (provider === 'gmail') {
-        return nodemailer.createTransporter({
+        return nodemailer.createTransport({
           service: 'gmail',
           auth: {
             user: process.env.EMAIL_USER,
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
           }
         });
       } else if (provider === 'outlook') {
-        return nodemailer.createTransporter({
+        return nodemailer.createTransport({
           service: 'hotmail',
           auth: {
             user: process.env.EMAIL_USER,
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
         });
       } else {
         // Custom SMTP configuration
-        return nodemailer.createTransporter({
+        return nodemailer.createTransport({
           host: process.env.EMAIL_HOST || 'smtp.gmail.com',
           port: parseInt(process.env.EMAIL_PORT) || 587,
           secure: process.env.EMAIL_PORT === '465',

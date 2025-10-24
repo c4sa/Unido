@@ -62,7 +62,7 @@ export default async function handler(req, res) {
   // Create transporter based on provider
   const createTransporter = () => {
     if (smtpConfig.provider === 'gmail') {
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: smtpConfig.user,
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
         }
       });
     } else if (smtpConfig.provider === 'outlook') {
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         service: 'hotmail',
         auth: {
           user: smtpConfig.user,
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       });
     } else {
       // Custom SMTP configuration
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         host: smtpConfig.host,
         port: smtpConfig.port,
         secure: smtpConfig.secure,
