@@ -1,7 +1,7 @@
 {
-  "buildCommand": "vite build",
-  "devCommand": "vite",
-  "installCommand": "npm install",
+  "buildCommand": "pnpm run build",
+  "devCommand": "pnpm run dev",
+  "installCommand": "pnpm install",
   "functions": {
     "api/send-email.js": {
       "maxDuration": 10
