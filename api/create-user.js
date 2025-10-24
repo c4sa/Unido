@@ -67,6 +67,10 @@ export default async function handler(req, res) {
         auth: {
           user: smtpConfig.user,
           pass: smtpConfig.pass
+        },
+        // Vercel-specific SSL configuration
+        tls: {
+          rejectUnauthorized: false
         }
       });
     } else if (smtpConfig.provider === 'outlook') {
@@ -75,6 +79,9 @@ export default async function handler(req, res) {
         auth: {
           user: smtpConfig.user,
           pass: smtpConfig.pass
+        },
+        tls: {
+          rejectUnauthorized: false
         }
       });
     } else {
@@ -86,6 +93,9 @@ export default async function handler(req, res) {
         auth: {
           user: smtpConfig.user,
           pass: smtpConfig.pass
+        },
+        tls: {
+          rejectUnauthorized: false
         }
       });
     }

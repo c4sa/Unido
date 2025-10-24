@@ -22,16 +22,51 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields: to, subject, html' });
   }
 
-  // Use environment variables for email config
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT) || 465,
-    secure: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-  });
+  // Create transporter based on provider
+  const createTransporter = () => {
+    const provider = process.env.EMAIL_PROVIDER || 'gmail';
+    
+    if (provider === 'gmail') {
+      return nodemailer.createTransporter({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD,
+        },
+        // Vercel-specific SSL configuration
+        tls: {
+          rejectUnauthorized: false
+        }
+      });
+    } else if (provider === 'outlook') {
+      return nodemailer.createTransporter({
+        service: 'hotmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD,
+        },
+        tls: {
+          rejectUnauthorized: false
+        }
+      });
+    } else {
+      // Custom SMTP configuration
+      return nodemailer.createTransporter({
+        host: process.env.EMAIL_HOST,
+        port: parseInt(process.env.EMAIL_PORT) || 587,
+        secure: process.env.EMAIL_PORT === '465',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD,
+        },
+        tls: {
+          rejectUnauthorized: false
+        }
+      });
+    }
+  };
+
+  const transporter = createTransporter();
 
   try {
     await transporter.sendMail({
