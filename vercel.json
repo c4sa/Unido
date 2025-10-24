@@ -32,6 +32,9 @@
     },
     "api/validate-group-connections.js": {
       "maxDuration": 10
+    },
+    "api/create-user.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [

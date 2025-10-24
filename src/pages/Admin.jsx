@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 // Removed Tabs imports, as invitation functionality is replaced by a static info card
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Shield, 
@@ -21,6 +21,7 @@ import {
   Building2,
   Globe,
   Edit,
+  Plus,
 } from "lucide-react"; // Removed Mail, Send, Trash2, Upload, Download as they are no longer used
 import { format } from "date-fns";
 
@@ -42,6 +43,12 @@ export default function Admin() {
   const [editingDelegate, setEditingDelegate] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({
+    email: '',
+    role: 'user'
+  });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -105,6 +112,62 @@ export default function Admin() {
       await loadData();
     } catch (error) {
       console.error("Error updating delegate role:", error);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!createUserForm.email || !createUserForm.role) {
+      return;
+    }
+
+    setCreating(true);
+    try {
+      // Call backend API to create user
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:3000/api/create-user'
+        : '/api/create-user';
+        
+      console.log('Calling API:', apiUrl);
+      console.log('Request body:', createUserForm);
+        
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(createUserForm)
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
+      // Check if response is HTML (404 page) instead of JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}. Please ensure the development server is running on port 3000.`);
+      }
+
+      const result = await response.json();
+      console.log('Response result:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create user');
+      }
+
+      // Reset form and close dialog
+      setCreateUserForm({ email: '', role: 'user' });
+      setIsCreateUserDialogOpen(false);
+      
+      // Reload data to show new user
+      await loadData();
+      
+      // Show success message
+      alert('User created successfully! Credentials have been sent to their email.');
+    } catch (error) {
+      console.error("Error creating user:", error);
+      alert(error.message || 'Failed to create user. Please try again.');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -221,11 +284,19 @@ export default function Admin() {
         {/* User Management */}
         <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
-            <div>
-              <CardTitle>User Management</CardTitle>
-              <p className="text-sm text-slate-600">View and manage all registered users</p>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>User Management</CardTitle>
+                <p className="text-sm text-slate-600">View and manage all registered users</p>
+              </div>
+              <Button
+                onClick={() => setIsCreateUserDialogOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Create User
+              </Button>
             </div>
-            {/* Removed Add User button and its dialog */}
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -429,6 +500,78 @@ export default function Admin() {
               </Button>
               <Button onClick={handleSaveEdit}>
                 Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create User Dialog */}
+        <Dialog open={isCreateUserDialogOpen} onOpenChange={setIsCreateUserDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New User</DialogTitle>
+              <DialogDescription>
+                Create a new user account. A temporary password will be generated and sent to the user's email.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-email">Email Address</Label>
+                <Input
+                  id="create-email"
+                  type="email"
+                  value={createUserForm.email}
+                  onChange={(e) => setCreateUserForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="user@example.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-role">Role</Label>
+                <Select 
+                  value={createUserForm.role} 
+                  onValueChange={(value) => setCreateUserForm(prev => ({ ...prev, role: value }))}
+                >
+                  <SelectTrigger id="create-role">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Alert className="border-blue-200 bg-blue-50">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  <strong>Note:</strong> A temporary password will be generated and sent to the user's email. 
+                  The user will be required to reset their password on first login.
+                </AlertDescription>
+              </Alert>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsCreateUserDialogOpen(false);
+                  setCreateUserForm({ email: '', role: 'user' });
+                }}
+                disabled={creating}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCreateUser}
+                disabled={creating || !createUserForm.email || !createUserForm.role}
+              >
+                {creating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Creating...
+                  </>
+                ) : (
+                  'Create User'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
