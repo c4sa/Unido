@@ -25,6 +25,7 @@ import Schedule from "./Schedule";
 import Rooms from "./Rooms";
 
 import RoomDetail from "./RoomDetail";
+import PrivacyPolicy from "./PrivacyPolicy";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -49,6 +50,7 @@ const PAGES = {
     Rooms: Rooms,
     
     RoomDetail: RoomDetail,
+    PrivacyPolicy: PrivacyPolicy,
     
 }
 
@@ -89,6 +91,10 @@ function PagesContent() {
     
     if (location.pathname === '/verify-code') {
         return <VerifyCode />;
+    }
+    
+    if (location.pathname === '/privacy-policy') {
+        return <PrivacyPolicy />;
     }
     
     // All other routes are protected
