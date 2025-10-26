@@ -267,32 +267,54 @@ export default function Meetings() {
   const handleCancelMeeting = async (meeting) => {
     setCancelling(true);
     try {
-      // Update meeting status to cancelled
-      await MeetingRequest.update(meeting.id, { status: 'cancelled' });
+      const isRequester = meeting.requester_id === currentUser.id;
+      const isSingleMeeting = meeting.meeting_type === 'single';
+      
+      if (isSingleMeeting || isRequester) {
+        // Single meetings: cancel for everyone
+        // Group meetings: if requester cancels, cancel for everyone
+        await MeetingRequest.update(meeting.id, { status: 'cancelled' });
 
-      // Cancel any associated venue booking
-      const associatedBooking = bookings.find(booking =>
-        booking.meeting_request_id === meeting.id && booking.status === 'active'
-      );
+        // Cancel any associated venue booking
+        const associatedBooking = bookings.find(booking =>
+          booking.meeting_request_id === meeting.id && booking.status === 'active'
+        );
 
-      if (associatedBooking) {
-        await VenueBooking.update(associatedBooking.id, { status: 'cancelled' });
-      }
+        if (associatedBooking) {
+          await VenueBooking.update(associatedBooking.id, { status: 'cancelled' });
+        }
 
-      // Notify the other participant(s)
-      const participantsToNotify = [
-        meeting.requester_id,
-        ...(meeting.recipient_ids || []),
-      ].filter((id) => id !== currentUser.id);
+        // Notify the other participant(s)
+        const participantsToNotify = [
+          meeting.requester_id,
+          ...(meeting.recipient_ids || []),
+        ].filter((id) => id !== currentUser.id);
 
-      for (const participantId of participantsToNotify) {
-        const otherUser = users[participantId] || await User.get(participantId);
-        if (otherUser && otherUser.notification_preferences?.request_status_update !== false) {
+        for (const participantId of participantsToNotify) {
+          const otherUser = users[participantId] || await User.get(participantId);
+          if (otherUser && otherUser.notification_preferences?.request_status_update !== false) {
+            await Notification.create({
+              user_id: participantId,
+              type: 'request_status_update',
+              title: 'Meeting Cancelled',
+              body: `${currentUser.full_name} has cancelled your meeting "${meeting.proposed_topic}" (Code: ${meeting.meeting_code}).`,
+              link: createPageUrl("Meetings"),
+              related_entity_id: meeting.id,
+            });
+          }
+        }
+      } else {
+        // Group meetings: if participant cancels, only cancel their participation
+        await MeetingRequest.respondAsParticipant(meeting.id, currentUser.id, 'declined');
+
+        // Notify the requester about the participant's cancellation
+        const requester = users[meeting.requester_id] || await User.get(meeting.requester_id);
+        if (requester && requester.notification_preferences?.request_status_update !== false) {
           await Notification.create({
-            user_id: participantId,
-            type: 'request_status_update',
-            title: 'Meeting Cancelled',
-            body: `${currentUser.full_name} has cancelled your meeting "${meeting.proposed_topic}" (Code: ${meeting.meeting_code}).`,
+            user_id: meeting.requester_id,
+            type: 'request_declined',
+            title: 'Participant Cancelled Meeting',
+            body: `${currentUser.full_name} has cancelled their participation in the group meeting "${meeting.proposed_topic}" (Code: ${meeting.meeting_code}).`,
             link: createPageUrl("Meetings"),
             related_entity_id: meeting.id,
           });
@@ -368,13 +390,14 @@ export default function Meetings() {
         
         const participantStatus = userParticipantData[req.id];
         
-        // For requesters: show in history if meeting is declined/cancelled or if they cancelled it
+        // For requesters: show in history if meeting is declined/cancelled OR if it's still pending (sent but not yet accepted)
         if (req.requester_id === user.id) {
-          return req.status === 'declined' || req.status === 'cancelled';
+          return req.status === 'declined' || req.status === 'cancelled' || req.status === 'pending';
         }
         
-        // For recipients: show in history if they declined
-        return participantStatus?.response_status === 'declined';
+        // For recipients: show in history if they declined OR if meeting was cancelled
+        // For group meetings: also show if they declined (cancelled their participation)
+        return participantStatus?.response_status === 'declined' || req.status === 'cancelled';
       });
 
       const accepted = allRequests.filter(req => {
@@ -383,13 +406,14 @@ export default function Meetings() {
         
         const participantStatus = userParticipantData[req.id];
         
-        // For requesters: always accepted (auto-accepted when creating)
+        // For requesters: show in accepted only if meeting status is accepted (all participants accepted)
         if (req.requester_id === user.id) {
-          return participantStatus?.response_status === 'accepted';
+          return req.status === 'accepted';
         }
         
-        // For recipients: show in accepted if they accepted
-        return participantStatus?.response_status === 'accepted';
+        // For recipients: show in accepted if they accepted AND meeting is not cancelled
+        // For group meetings: show if they accepted and meeting is still active (not cancelled)
+        return participantStatus?.response_status === 'accepted' && req.status !== 'cancelled';
       });
 
       setPendingRequests(pending);

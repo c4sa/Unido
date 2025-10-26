@@ -51,6 +51,7 @@ ON public.meeting_participants(meeting_request_id, response_status);
 -- =====================================================
 
 -- Create trigger to update updated_date on each row update
+DROP TRIGGER IF EXISTS trigger_meeting_participants_updated_date ON public.meeting_participants;
 CREATE TRIGGER trigger_meeting_participants_updated_date
   BEFORE UPDATE ON public.meeting_participants
   FOR EACH ROW
@@ -61,6 +62,7 @@ CREATE TRIGGER trigger_meeting_participants_updated_date
 -- =====================================================
 
 -- Function to get meeting acceptance status
+DROP FUNCTION IF EXISTS get_meeting_acceptance_status(UUID);
 CREATE OR REPLACE FUNCTION get_meeting_acceptance_status(p_meeting_id UUID)
 RETURNS TABLE(
   total_participants INTEGER,
@@ -119,6 +121,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to get accepted participants for a meeting
+DROP FUNCTION IF EXISTS get_accepted_participants(UUID);
 CREATE OR REPLACE FUNCTION get_accepted_participants(p_meeting_id UUID)
 RETURNS TABLE(
   participant_id UUID,
@@ -139,6 +142,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to create participants for a new meeting
+DROP FUNCTION IF EXISTS create_meeting_participants(UUID, UUID, UUID[]);
 CREATE OR REPLACE FUNCTION create_meeting_participants(
   p_meeting_id UUID,
   p_requester_id UUID,
@@ -190,6 +194,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to respond to meeting as participant
+DROP FUNCTION IF EXISTS respond_to_meeting(UUID, UUID, TEXT);
 CREATE OR REPLACE FUNCTION respond_to_meeting(
   p_meeting_id UUID,
   p_participant_id UUID,
@@ -204,6 +209,8 @@ DECLARE
   participant_exists BOOLEAN;
   current_status TEXT;
   new_meeting_status TEXT;
+  participant_count INTEGER;
+  meeting_type TEXT;
 BEGIN
   -- Validate response
   IF p_response NOT IN ('accepted', 'declined') THEN
@@ -239,23 +246,65 @@ BEGIN
   SELECT overall_status INTO new_meeting_status
   FROM get_meeting_acceptance_status(p_meeting_id);
   
-  -- Update meeting request status if needed
-  IF new_meeting_status = 'fully_accepted' THEN
-    UPDATE public.meeting_requests 
-    SET status = 'accepted'
-    WHERE id = p_meeting_id;
-    new_meeting_status := 'accepted';
-  ELSIF new_meeting_status = 'fully_declined' THEN
-    UPDATE public.meeting_requests 
-    SET status = 'declined'
-    WHERE id = p_meeting_id;
-    new_meeting_status := 'declined';
+  -- Check if this is a single meeting (only 2 participants)
+  SELECT 
+    COUNT(mp.id) as participant_count, 
+    mr.meeting_type
+  INTO participant_count, meeting_type
+  FROM public.meeting_participants mp
+  JOIN public.meeting_requests mr ON mp.meeting_request_id = mr.id
+  WHERE mp.meeting_request_id = p_meeting_id
+  GROUP BY mr.meeting_type;
+  
+  -- For single meetings: if any participant declines, meeting is declined
+  IF meeting_type = 'single' AND participant_count = 2 THEN
+    -- Check if any participant has declined
+    IF EXISTS (
+      SELECT 1 FROM public.meeting_participants 
+      WHERE meeting_request_id = p_meeting_id 
+      AND response_status = 'declined'
+    ) THEN
+      UPDATE public.meeting_requests 
+      SET status = 'declined'
+      WHERE id = p_meeting_id;
+      new_meeting_status := 'declined';
+    ELSIF EXISTS (
+      SELECT 1 FROM public.meeting_participants 
+      WHERE meeting_request_id = p_meeting_id 
+      AND response_status = 'accepted'
+      AND participant_type = 'recipient'
+    ) THEN
+      -- Recipient accepted, meeting is accepted
+      UPDATE public.meeting_requests 
+      SET status = 'accepted'
+      WHERE id = p_meeting_id;
+      new_meeting_status := 'accepted';
+    ELSE
+      -- Still pending
+      UPDATE public.meeting_requests 
+      SET status = 'pending'
+      WHERE id = p_meeting_id;
+      new_meeting_status := 'pending';
+    END IF;
   ELSE
-    -- Keep as pending for partial responses
-    UPDATE public.meeting_requests 
-    SET status = 'pending'
-    WHERE id = p_meeting_id;
-    new_meeting_status := 'pending';
+    -- For group meetings: use original logic
+    IF new_meeting_status = 'fully_accepted' THEN
+      UPDATE public.meeting_requests 
+      SET status = 'accepted'
+      WHERE id = p_meeting_id;
+      new_meeting_status := 'accepted';
+    ELSIF new_meeting_status = 'fully_declined' THEN
+      UPDATE public.meeting_requests 
+      SET status = 'declined'
+      WHERE id = p_meeting_id;
+      new_meeting_status := 'declined';
+    ELSE
+      -- Keep as pending for partial responses
+      UPDATE public.meeting_requests 
+      SET status = 'pending'
+      WHERE id = p_meeting_id;
+      new_meeting_status := 'pending';
+    END IF;
   END IF;
   
   RETURN QUERY SELECT TRUE, 'Response recorded successfully'::TEXT, new_meeting_status;

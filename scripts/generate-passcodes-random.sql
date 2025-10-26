@@ -10,12 +10,12 @@ DELETE FROM public.passcodes;
 -- Using a more efficient approach that avoids collisions
 WITH random_numbers AS (
   SELECT DISTINCT 
-    LPAD(FLOOR(RANDOM() * 10000)::TEXT, 4, '0') as num
+    LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0') as num
   FROM generate_series(1, 5000) -- Generate more than needed to ensure we get 3000 unique
   LIMIT 3000
 )
 INSERT INTO public.passcodes (code)
-SELECT 'UN-' || num as code
+SELECT num as code
 FROM random_numbers;
 
 -- Verify the generation

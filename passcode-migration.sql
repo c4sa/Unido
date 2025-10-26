@@ -5,7 +5,7 @@
 -- 1. Create Passcodes Table (if it doesn't exist)
 CREATE TABLE IF NOT EXISTS public.passcodes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  code TEXT NOT NULL UNIQUE CHECK (code ~ '^UN-[0-9]{4}$'),
+  code TEXT NOT NULL UNIQUE CHECK (code ~ '^[0-9]{6}$'),
   is_used BOOLEAN DEFAULT FALSE NOT NULL,
   used_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
   used_at TIMESTAMPTZ,
@@ -58,8 +58,8 @@ BEGIN
   WHILE i < count AND attempts < max_attempts LOOP
     attempts := attempts + 1;
     
-    -- Generate random 4-digit number (0000-9999)
-    new_code := 'UN-' || LPAD(FLOOR(RANDOM() * 10000)::TEXT, 4, '0');
+    -- Generate random 6-digit number (000000-999999)
+    new_code := LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0');
     
     -- Check uniqueness
     IF NOT EXISTS (SELECT 1 FROM public.passcodes WHERE code = new_code) THEN
@@ -125,8 +125,8 @@ EXCEPTION
 END $$;
 
 -- 7. Add comments for documentation
-COMMENT ON TABLE public.passcodes IS 'One-time passcodes for new user registration - Format: UN-xxxx';
-COMMENT ON COLUMN public.passcodes.code IS 'Unique passcode in format UN-xxxx where x are digits';
+COMMENT ON TABLE public.passcodes IS 'One-time passcodes for new user registration - Format: xxxxxx (6 digits)';
+COMMENT ON COLUMN public.passcodes.code IS 'Unique passcode in format xxxxxx where x are digits (6 digits total)';
 COMMENT ON COLUMN public.passcodes.is_used IS 'Whether the passcode has been used for registration';
 COMMENT ON COLUMN public.passcodes.used_by IS 'User ID who used this passcode';
 COMMENT ON COLUMN public.users.is_password_reset IS 'Whether user needs to reset password on first login';

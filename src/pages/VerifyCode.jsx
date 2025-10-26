@@ -15,7 +15,7 @@ export default function VerifyCode() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState(['U', 'N', '', '', '', '']);
+  const [code, setCode] = useState(['', '', '', '', '', '']);
   const inputRefs = useRef([]);
 
   // Focus first input on mount
@@ -26,8 +26,6 @@ export default function VerifyCode() {
   }, []);
 
   const handleCodeChange = (index, value) => {
-    if (index < 2) return; // Don't allow changes to 'U' and 'N'
-    
     if (value.length > 1) return; // Prevent multiple characters
     
     const newCode = [...code];
@@ -42,24 +40,24 @@ export default function VerifyCode() {
 
   const handleKeyDown = (index, e) => {
     // Handle backspace
-    if (e.key === 'Backspace' && !code[index] && index > 2) {
+    if (e.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     const newCode = [...code];
     
     for (let i = 0; i < pastedData.length; i++) {
-      newCode[i + 2] = pastedData[i]; // Start from index 2 (after 'UN')
+      newCode[i] = pastedData[i]; // Start from index 0
     }
     
     setCode(newCode);
     
     // Focus the next empty input or the last one
-    const nextIndex = Math.min(pastedData.length + 1, 5);
+    const nextIndex = Math.min(pastedData.length, 5);
     inputRefs.current[nextIndex]?.focus();
   };
 
@@ -81,8 +79,8 @@ export default function VerifyCode() {
       return;
     }
 
-    // Convert UNxxxx format to UN-xxxx format for database
-    const formattedCode = codeString.replace(/^(UN)(\d{4})$/, '$1-$2');
+    // Use the 6-digit code directly for database
+    const formattedCode = codeString;
 
     // Check if we're in development mode (no API available)
     const isDevelopment = !window.location.hostname.includes('vercel.app') && 
@@ -363,19 +361,15 @@ export default function VerifyCode() {
                         onChange={(e) => handleCodeChange(index, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(index, e)}
                         onPaste={handlePaste}
-                        className={`w-12 h-12 text-center text-lg font-semibold border-2 ${
-                          index < 2 ? 'bg-gray-100 cursor-not-allowed' : 'focus:border-blue-500'
-                        }`}
+                        className="w-12 h-12 text-center text-lg font-semibold border-2 focus:border-blue-500"
                         style={{ 
                           borderColor: digit ? '#0064b0' : '#d1d5db',
                           color: '#0064b0'
                         }}
-                        disabled={index < 2}
-                        readOnly={index < 2}
                       />
                     ))}
                   </div>
-                  <p className="text-xs text-gray-500 text-center">Format: UNxxxx (x = numbers)</p>
+                  <p className="text-xs text-gray-500 text-center">Format: xxxxxx (6 digits)</p>
                 </div>
 
                 <Button
