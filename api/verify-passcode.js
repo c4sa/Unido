@@ -33,10 +33,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid email format' });
   }
 
-  // Validate code format (UN-xxxx)
-  const codeRegex = /^UN-[0-9]{4}$/;
+  // Validate code format (6 digits)
+  const codeRegex = /^[0-9]{6}$/;
   if (!codeRegex.test(code)) {
-    return res.status(400).json({ error: 'Invalid code format. Expected: UN-xxxx' });
+    return res.status(400).json({ error: 'Invalid code format. Expected: 6 digits' });
   }
 
   console.log('Verifying passcode:', code, 'for email:', email);
