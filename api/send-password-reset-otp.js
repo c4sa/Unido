@@ -118,7 +118,7 @@ export default async function handler(req, res) {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <img src="${process.env.PRODUCTION_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+          <img src="https://unido-lu7i.vercel.app/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
           <h1 style="color: #0064b0; margin: 0;">Reset Your Password</h1>
           <p style="color: #666; margin: 10px 0 0 0;">GC21 Security Code</p>
         </div>

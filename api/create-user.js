@@ -156,7 +156,7 @@ export default async function handler(req, res) {
     try {
       const transporter = createTransporter();
       
-      const baseUrl = process.env.PRODUCTION_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      const baseUrl = 'https://unido-lu7i.vercel.app';
       
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
