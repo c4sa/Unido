@@ -18,9 +18,8 @@ const getBaseUrl = () => {
     return 'http://localhost:5173';
   }
   
-  // In production, use the deployed URL
-  // You'll need to replace this with your actual Vercel URL
-  return 'https://unido-lu7i.vercel.app';
+  // In production, use environment variable or fallback to hardcoded URL
+  return import.meta.env.VITE_PRODUCTION_URL || 'https://unido-lu7i.vercel.app';
 };
 
 // Development fallback - simulate email sending

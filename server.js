@@ -270,7 +270,7 @@ app.post('/api/send-password-reset-otp', async (req, res) => {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <img src="${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+          <img src="${process.env.PRODUCTION_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
           <h1 style="color: #0064b0; margin: 0;">Reset Your Password</h1>
           <p style="color: #666; margin: 10px 0 0 0;">GC21 Security Code</p>
         </div>
@@ -497,7 +497,7 @@ app.post('/api/create-user', async (req, res) => {
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${process.env.VERCEL_URL || 'http://localhost:3000'}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+            <img src="${process.env.PRODUCTION_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
             <h1 style="color: #0064b0; margin: 0;">Welcome to GC21</h1>
             <p style="color: #666; margin: 10px 0 0 0;">Professional Networking Platform</p>
           </div>
@@ -519,7 +519,7 @@ app.post('/api/create-user', async (req, res) => {
           </div>
           
           <div style="text-align: center; margin-top: 30px;">
-            <a href="${process.env.VERCEL_URL || 'http://localhost:3000'}/login" style="background: #0064b0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Login to Platform</a>
+            <a href="${process.env.PRODUCTION_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/login" style="background: #0064b0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Login to Platform</a>
           </div>
           
           <div style="text-align: center; margin-top: 20px; color: #666; font-size: 14px;">
@@ -533,7 +533,7 @@ app.post('/api/create-user', async (req, res) => {
         to: email,
         subject: 'Welcome to GC21 - Your Account Credentials',
         html: html,
-        text: `Welcome to GC21!\n\nYour account has been created by an administrator.\n\nLogin Credentials:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nYou will be required to change your password on first login.\n\nLogin at: ${process.env.VERCEL_URL || 'http://localhost:3000'}/login`
+        text: `Welcome to GC21!\n\nYour account has been created by an administrator.\n\nLogin Credentials:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nYou will be required to change your password on first login.\n\nLogin at: ${process.env.PRODUCTION_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/login`
       };
 
       await transporter.sendMail(mailOptions);
