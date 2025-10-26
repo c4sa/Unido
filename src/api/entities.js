@@ -447,12 +447,13 @@ class MeetingRequestEntity extends SupabaseEntity {
    * Check if there's an existing meeting request between two users
    * Returns the existing request if found, null otherwise
    */
-  async getExistingRequest(requesterId, recipientId) {
+  async getExistingRequest(requesterId, recipientId, meetingType = 'single') {
     try {
       const { data, error } = await supabase
         .from(this.table)
         .select('*')
         .eq('requester_id', requesterId)
+        .eq('meeting_type', meetingType)
         .contains('recipient_ids', [recipientId])
         .in('status', ['pending', 'accepted'])
         .order('created_date', { ascending: false })

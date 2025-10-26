@@ -125,7 +125,7 @@ export default function UsersDirectory() {
       // Get all meeting requests where user is requester or recipient
       const allRequests = await MeetingRequest.list('-created_date');
       
-      // Create meeting status lookup for each user
+      // Create meeting status lookup for each user, separated by meeting type
       const meetingMap = {};
       
       allRequests.forEach(request => {
@@ -136,14 +136,29 @@ export default function UsersDirectory() {
           // For each participant in this meeting
           (request.recipient_ids || []).forEach(recipientId => {
             if (recipientId !== userId) {
-              // Store the meeting status for this user pair
-              meetingMap[recipientId] = {
+              // Initialize user entry if not exists
+              if (!meetingMap[recipientId]) {
+                meetingMap[recipientId] = {
+                  single: null,
+                  multi: null
+                };
+              }
+              
+              // Store the meeting status by type
+              const meetingData = {
                 id: request.id,
                 status: request.status,
                 is_requester: isRequester,
                 topic: request.proposed_topic,
                 created_date: request.created_date
               };
+              
+              // Store by meeting type - only store the most recent meeting of each type
+              if (request.meeting_type === 'single') {
+                meetingMap[recipientId].single = meetingData;
+              } else if (request.meeting_type === 'multi') {
+                meetingMap[recipientId].multi = meetingData;
+              }
             }
           });
         }
@@ -246,8 +261,8 @@ export default function UsersDirectory() {
 
     setSending(true);
     try {
-      // Check for existing meeting request between these users
-      const existingRequest = await MeetingRequest.getExistingRequest(currentUser.id, selectedUser.id);
+      // Check for existing single meeting request between these users
+      const existingRequest = await MeetingRequest.getExistingRequest(currentUser.id, selectedUser.id, 'single');
       
       if (existingRequest) {
         if (existingRequest.status === 'pending') {
@@ -317,8 +332,11 @@ export default function UsersDirectory() {
     return 'not_connected';
   };
 
-  const getMeetingStatus = (userId) => {
-    const meeting = existingMeetings[userId];
+  const getMeetingStatus = (userId, meetingType = 'single') => {
+    const userMeetings = existingMeetings[userId];
+    if (!userMeetings) return 'none';
+    
+    const meeting = userMeetings[meetingType];
     if (!meeting) return 'none';
     
     if (meeting.status === 'pending') {
@@ -336,7 +354,7 @@ export default function UsersDirectory() {
 
   const renderActionButton = (user) => {
     const connectionStatus = getConnectionStatus(user.id);
-    const meetingStatus = getMeetingStatus(user.id);
+    const meetingStatus = getMeetingStatus(user.id, 'single'); // Check single meeting status for single meeting requests
     
     // If not connected, show connection request button
     if (connectionStatus !== 'connected') {

@@ -174,7 +174,7 @@ export default function RequestMeetingDialog({ currentUser, afterSubmit }) {
     try {
       // Check for existing meeting requests for single meetings
       if (meetingType === 'single' && recipientIds.length === 1) {
-        const existingRequest = await MeetingRequest.getExistingRequest(currentUser.id, recipientIds[0]);
+        const existingRequest = await MeetingRequest.getExistingRequest(currentUser.id, recipientIds[0], 'single');
         
         if (existingRequest) {
           if (existingRequest.status === 'pending') {
