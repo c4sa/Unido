@@ -172,6 +172,40 @@ export default function RequestMeetingDialog({ currentUser, afterSubmit }) {
 
     setSending(true);
     try {
+      // Check for existing meeting requests for single meetings
+      if (meetingType === 'single' && recipientIds.length === 1) {
+        const existingRequest = await MeetingRequest.getExistingRequest(currentUser.id, recipientIds[0]);
+        
+        if (existingRequest) {
+          if (existingRequest.status === 'pending') {
+            alert('You already have a pending meeting request with this delegate. Please wait for their response.');
+            setSending(false);
+            return;
+          } else if (existingRequest.status === 'accepted') {
+            alert('You already have an accepted meeting with this delegate. Please check your meetings.');
+            setSending(false);
+            return;
+          }
+        }
+      }
+
+      // Check for existing group meeting requests
+      if (meetingType === 'multi' && recipientIds.length > 1) {
+        const existingGroupRequest = await MeetingRequest.getExistingGroupRequest(currentUser.id, recipientIds);
+        
+        if (existingGroupRequest) {
+          if (existingGroupRequest.status === 'pending') {
+            alert('You already have a pending group meeting request with these delegates. Please wait for their response.');
+            setSending(false);
+            return;
+          } else if (existingGroupRequest.status === 'accepted') {
+            alert('You already have an accepted group meeting with these delegates. Please check your meetings.');
+            setSending(false);
+            return;
+          }
+        }
+      }
+
       const meetingCode = Math.random().toString(36).substring(2, 10).toUpperCase();
 
       const newRequest = await MeetingRequest.create({
@@ -205,7 +239,13 @@ export default function RequestMeetingDialog({ currentUser, afterSubmit }) {
       }
     } catch (error) {
       console.error('Error creating meeting request:', error);
-      alert(error.message || 'Failed to create meeting request');
+      if (error.message && error.message.includes('unique_pending_meeting_request')) {
+        alert('You already have a pending meeting request with one or more of these delegates. Please wait for their response.');
+      } else if (error.message && error.message.includes('unique_group_meeting_request')) {
+        alert('You already have a pending group meeting request with these delegates. Please wait for their response.');
+      } else {
+        alert(error.message || 'Failed to create meeting request');
+      }
     }
     setSending(false);
   };

@@ -51,6 +51,9 @@ export default function UsersDirectory() {
   const [sendingConnection, setSendingConnection] = useState(false);
   const [selectedConnectionUser, setSelectedConnectionUser] = useState(null);
   const [connectionMessage, setConnectionMessage] = useState('');
+  
+  // Meeting request state
+  const [existingMeetings, setExistingMeetings] = useState({});
 
   useEffect(() => {
     loadData();
@@ -78,6 +81,7 @@ export default function UsersDirectory() {
       // Load user connections
       if (user?.id) {
         await loadUserConnections(user.id);
+        await loadExistingMeetings(user.id);
       }
     } catch (error) {
       console.error("Error loading users:", error);
@@ -113,6 +117,41 @@ export default function UsersDirectory() {
       setConnectionRequests(requestMap);
     } catch (error) {
       console.error("Error loading connections:", error);
+    }
+  };
+
+  const loadExistingMeetings = async (userId) => {
+    try {
+      // Get all meeting requests where user is requester or recipient
+      const allRequests = await MeetingRequest.list('-created_date');
+      
+      // Create meeting status lookup for each user
+      const meetingMap = {};
+      
+      allRequests.forEach(request => {
+        const isRequester = request.requester_id === userId;
+        const isRecipient = (request.recipient_ids || []).includes(userId);
+        
+        if (isRequester || isRecipient) {
+          // For each participant in this meeting
+          (request.recipient_ids || []).forEach(recipientId => {
+            if (recipientId !== userId) {
+              // Store the meeting status for this user pair
+              meetingMap[recipientId] = {
+                id: request.id,
+                status: request.status,
+                is_requester: isRequester,
+                topic: request.proposed_topic,
+                created_date: request.created_date
+              };
+            }
+          });
+        }
+      });
+      
+      setExistingMeetings(meetingMap);
+    } catch (error) {
+      console.error("Error loading existing meetings:", error);
     }
   };
 
@@ -207,6 +246,21 @@ export default function UsersDirectory() {
 
     setSending(true);
     try {
+      // Check for existing meeting request between these users
+      const existingRequest = await MeetingRequest.getExistingRequest(currentUser.id, selectedUser.id);
+      
+      if (existingRequest) {
+        if (existingRequest.status === 'pending') {
+          alert('You already have a pending meeting request with this delegate. Please wait for their response.');
+          setSending(false);
+          return;
+        } else if (existingRequest.status === 'accepted') {
+          alert('You already have an accepted meeting with this delegate. Please check your meetings.');
+          setSending(false);
+          return;
+        }
+      }
+
       // Generate unique 8-character meeting code
       const meetingCode = Math.random().toString(36).substring(2, 10).toUpperCase();
 
@@ -239,9 +293,16 @@ export default function UsersDirectory() {
         proposed_topic: '',
         proposed_duration: 45
       });
+
+      // Refresh existing meetings to update button states
+      await loadExistingMeetings(currentUser.id);
     } catch (error) {
       console.error("Error sending meeting request:", error);
-      alert(error.message || 'Failed to send meeting request');
+      if (error.message && error.message.includes('unique_pending_meeting_request')) {
+        alert('You already have a pending meeting request with this delegate. Please wait for their response.');
+      } else {
+        alert(error.message || 'Failed to send meeting request');
+      }
     }
     setSending(false);
   };
@@ -256,11 +317,166 @@ export default function UsersDirectory() {
     return 'not_connected';
   };
 
-  const renderActionButton = (user) => {
-    const status = getConnectionStatus(user.id);
+  const getMeetingStatus = (userId) => {
+    const meeting = existingMeetings[userId];
+    if (!meeting) return 'none';
     
-    switch (status) {
-      case 'connected':
+    if (meeting.status === 'pending') {
+      return meeting.is_requester ? 'meeting_pending_sent' : 'meeting_pending_received';
+    } else if (meeting.status === 'accepted') {
+      return 'meeting_accepted';
+    } else if (meeting.status === 'declined') {
+      return 'meeting_declined';
+    } else if (meeting.status === 'cancelled') {
+      return 'meeting_cancelled';
+    }
+    
+    return 'none';
+  };
+
+  const renderActionButton = (user) => {
+    const connectionStatus = getConnectionStatus(user.id);
+    const meetingStatus = getMeetingStatus(user.id);
+    
+    // If not connected, show connection request button
+    if (connectionStatus !== 'connected') {
+      switch (connectionStatus) {
+        case 'request_sent':
+          return (
+            <Button
+              disabled
+              className="w-full mt-4 bg-gray-400 cursor-not-allowed"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Request Sent
+            </Button>
+          );
+          
+        case 'request_received':
+          return (
+            <Button
+              disabled
+              className="w-full mt-4 bg-orange-400 cursor-not-allowed"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Request Received
+            </Button>
+          );
+          
+        default: // not_connected
+          return (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  className="w-full mt-4 bg-green-600 hover:bg-green-700"
+                  onClick={() => setSelectedConnectionUser(user)}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Send Connection Request
+                </Button>
+              </DialogTrigger>
+
+              {selectedConnectionUser?.id === user.id && (
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Connect with {user.full_name}</DialogTitle>
+                    <DialogDescription>
+                      Send a connection request to {user.full_name}. Once accepted, you'll be able to send meeting requests to each other.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-800">
+                        Send a connection request to {user.full_name}. Once they accept, 
+                        you'll be able to send meeting requests to each other.
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="connection-message">Message (Optional)</Label>
+                      <Textarea
+                        id="connection-message"
+                        placeholder="Introduce yourself and explain why you'd like to connect..."
+                        value={connectionMessage}
+                        onChange={(e) => setConnectionMessage(e.target.value)}
+                        className="h-24"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedConnectionUser(null);
+                          setConnectionMessage('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={sendConnectionRequest}
+                        disabled={sendingConnection}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {sendingConnection ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Send Request
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              )}
+            </Dialog>
+          );
+      }
+    }
+    
+    // If connected, check meeting status
+    switch (meetingStatus) {
+      case 'meeting_pending_sent':
+        return (
+          <Button
+            disabled
+            className="w-full mt-4 bg-yellow-500 cursor-not-allowed"
+          >
+            <Clock className="w-4 h-4 mr-2" />
+            Meeting Request Pending
+          </Button>
+        );
+        
+      case 'meeting_pending_received':
+        return (
+          <Button
+            disabled
+            className="w-full mt-4 bg-orange-500 cursor-not-allowed"
+          >
+            <Clock className="w-4 h-4 mr-2" />
+            Meeting Request Received
+          </Button>
+        );
+        
+      case 'meeting_accepted':
+        return (
+          <Button
+            disabled
+            className="w-full mt-4 bg-green-500 cursor-not-allowed"
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Meeting Accepted
+          </Button>
+        );
+        
+      case 'meeting_declined':
+      case 'meeting_cancelled':
+        // Can send new request after declined/cancelled
         return (
           <Dialog>
             <DialogTrigger asChild>
@@ -348,11 +564,11 @@ export default function UsersDirectory() {
                     >
                       Cancel
                     </Button>
-                        <Button
-                          onClick={sendMeetingRequest}
-                          disabled={sending || !meetingRequest.proposed_topic || meetingRequest.proposed_topic.length < 5}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
+                    <Button
+                      onClick={sendMeetingRequest}
+                      disabled={sending || !meetingRequest.proposed_topic || meetingRequest.proposed_topic.length < 5}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
                       {sending ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -372,64 +588,83 @@ export default function UsersDirectory() {
           </Dialog>
         );
         
-      case 'request_sent':
-        return (
-          <Button
-            disabled
-            className="w-full mt-4 bg-gray-400 cursor-not-allowed"
-          >
-            <Clock className="w-4 h-4 mr-2" />
-            Request Sent
-          </Button>
-        );
-        
-      case 'request_received':
-        return (
-          <Button
-            disabled
-            className="w-full mt-4 bg-orange-400 cursor-not-allowed"
-          >
-            <Clock className="w-4 h-4 mr-2" />
-            Request Received
-          </Button>
-        );
-        
-      default: // not_connected
+      default: // no existing meeting, can send new request
         return (
           <Dialog>
             <DialogTrigger asChild>
               <Button
-                className="w-full mt-4 bg-green-600 hover:bg-green-700"
-                onClick={() => setSelectedConnectionUser(user)}
+                className="w-full mt-4 bg-blue-600 hover:bg-blue-700"
+                onClick={() => setSelectedUser(user)}
               >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Send Connection Request
+                <Send className="w-4 h-4 mr-2" />
+                Request Meeting
               </Button>
             </DialogTrigger>
 
-            {selectedConnectionUser?.id === user.id && (
+            {selectedUser?.id === user.id && (
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Connect with {user.full_name}</DialogTitle>
+                  <DialogTitle>Request Meeting with {user.full_name}</DialogTitle>
                   <DialogDescription>
-                    Send a connection request to {user.full_name}. Once accepted, you'll be able to send meeting requests to each other.
+                    Send a meeting request to {user.full_name}. Please provide a topic and any additional details.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">
-                      Send a connection request to {user.full_name}. Once they accept, 
-                      you'll be able to send meeting requests to each other.
-                    </p>
-                  </div>
-                  
                   <div className="space-y-2">
-                    <Label htmlFor="connection-message">Message (Optional)</Label>
+                    <Label htmlFor="topic">Proposed Topic *</Label>
+                    <Input
+                      id="topic"
+                      placeholder="e.g., Climate Policy Coordination"
+                      value={meetingRequest.proposed_topic}
+                      onChange={(e) => setMeetingRequest(prev => ({
+                        ...prev,
+                        proposed_topic: e.target.value
+                      }))}
+                      className={
+                        meetingRequest.proposed_topic && meetingRequest.proposed_topic.length < 5
+                          ? 'border-red-300 focus:border-red-500'
+                          : ''
+                      }
+                    />
+                    <div className="text-xs text-gray-500">
+                      {meetingRequest.proposed_topic.length}/200 characters
+                      {meetingRequest.proposed_topic && meetingRequest.proposed_topic.length < 5 && (
+                        <span className="text-red-600 ml-2">• Minimum 5 characters required</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="duration">Duration (minutes)</Label>
+                    <Select
+                      value={meetingRequest.proposed_duration.toString()}
+                      onValueChange={(value) => setMeetingRequest(prev => ({
+                        ...prev,
+                        proposed_duration: parseInt(value)
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30">30 minutes</SelectItem>
+                        <SelectItem value="45">45 minutes</SelectItem>
+                        <SelectItem value="60">60 minutes</SelectItem>
+                        <SelectItem value="90">90 minutes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="message">Personal Message</Label>
                     <Textarea
-                      id="connection-message"
-                      placeholder="Introduce yourself and explain why you'd like to connect..."
-                      value={connectionMessage}
-                      onChange={(e) => setConnectionMessage(e.target.value)}
+                      id="message"
+                      placeholder="Introduce yourself and explain why you'd like to meet..."
+                      value={meetingRequest.personal_message}
+                      onChange={(e) => setMeetingRequest(prev => ({
+                        ...prev,
+                        personal_message: e.target.value
+                      }))}
                       className="h-24"
                     />
                   </div>
@@ -437,26 +672,23 @@ export default function UsersDirectory() {
                   <div className="flex justify-end gap-2">
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        setSelectedConnectionUser(null);
-                        setConnectionMessage('');
-                      }}
+                      onClick={() => setSelectedUser(null)}
                     >
                       Cancel
                     </Button>
                     <Button
-                      onClick={sendConnectionRequest}
-                      disabled={sendingConnection}
-                      className="bg-green-600 hover:bg-green-700"
+                      onClick={sendMeetingRequest}
+                      disabled={sending || !meetingRequest.proposed_topic || meetingRequest.proposed_topic.length < 5}
+                      className="bg-blue-600 hover:bg-blue-700"
                     >
-                      {sendingConnection ? (
+                      {sending ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                           Sending...
                         </>
                       ) : (
                         <>
-                          <UserPlus className="w-4 h-4 mr-2" />
+                          <Send className="w-4 h-4 mr-2" />
                           Send Request
                         </>
                       )}

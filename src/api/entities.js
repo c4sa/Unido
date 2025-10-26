@@ -442,6 +442,53 @@ class MeetingRequestEntity extends SupabaseEntity {
       throw error;
     }
   }
+
+  /**
+   * Check if there's an existing meeting request between two users
+   * Returns the existing request if found, null otherwise
+   */
+  async getExistingRequest(requesterId, recipientId) {
+    try {
+      const { data, error } = await supabase
+        .from(this.table)
+        .select('*')
+        .eq('requester_id', requesterId)
+        .contains('recipient_ids', [recipientId])
+        .in('status', ['pending', 'accepted'])
+        .order('created_date', { ascending: false })
+        .limit(1);
+        
+      if (error) throw error;
+      return data && data.length > 0 ? data[0] : null;
+    } catch (error) {
+      console.error('Error checking existing meeting request:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if there's an existing group meeting request with the same participants
+   * Returns the existing request if found, null otherwise
+   */
+  async getExistingGroupRequest(requesterId, recipientIds) {
+    try {
+      const { data, error } = await supabase
+        .from(this.table)
+        .select('*')
+        .eq('requester_id', requesterId)
+        .eq('meeting_type', 'multi')
+        .contains('recipient_ids', recipientIds)
+        .in('status', ['pending', 'accepted'])
+        .order('created_date', { ascending: false })
+        .limit(1);
+        
+      if (error) throw error;
+      return data && data.length > 0 ? data[0] : null;
+    } catch (error) {
+      console.error('Error checking existing group meeting request:', error);
+      throw error;
+    }
+  }
 }
 
 /**
@@ -479,42 +526,19 @@ class ChatMessageEntity extends SupabaseEntity {
         
         // For group meetings, check if user is an accepted participant
         if (meetingData.meeting_type === 'multi') {
-          try {
-            const { data: participant, error: participantError } = await supabase
-              .from('meeting_participants')
-              .select('response_status')
-              .eq('meeting_request_id', meetingId)
-              .eq('participant_id', userId)
-              .eq('response_status', 'accepted')
-              .single();
-              
-            if (participantError) {
-              // Improved fallback: check if user is participant regardless of meeting status
-              // This handles cases where meeting status isn't synced yet
-              const isParticipant = meetingData.requester_id === userId || 
-                                   (meetingData.recipient_ids || []).includes(userId);
-              
-              if (isParticipant) {
-                console.warn('meeting_participants table access failed, allowing access for participant:', participantError);
-                return true; // Allow access for participants even if status check fails
-              }
-              
-              return false;
-            }
+          const { data: participant, error: participantError } = await supabase
+            .from('meeting_participants')
+            .select('response_status')
+            .eq('meeting_request_id', meetingId)
+            .eq('participant_id', userId)
+            .eq('response_status', 'accepted')
+            .single();
             
-            return !!participant; // User must be an accepted participant
-          } catch (error) {
-            // Fallback: allow access if user is a participant
-            const isParticipant = meetingData.requester_id === userId || 
-                                 (meetingData.recipient_ids || []).includes(userId);
-            
-            if (isParticipant) {
-              console.warn('meeting_participants table not available, allowing access for participant');
-              return true;
-            }
-            
-            return false;
+          if (participantError || !participant) {
+            return false; // Strict access control - no fallback
           }
+          
+          return true; // User must be an accepted participant
         }
         
         return false;
@@ -721,15 +745,19 @@ class ChatMessageEntity extends SupabaseEntity {
           
         if (error) throw error;
         
-        // Improved deduplication for group messages (without metadata dependency)
+        // Improved deduplication for group messages with better reliability
         const uniqueMessages = [];
         const seen = new Set();
         
         (groupMessages || []).forEach(msg => {
           // Create robust deduplication key using content and timestamp
           const messageTime = new Date(msg.created_date).getTime();
-          const contentHash = btoa(unescape(encodeURIComponent(msg.message.trim()))).slice(0, 12);
-          const deduplicationKey = `${msg.sender_id}-${contentHash}-${Math.floor(messageTime / 300)}`; // 300ms window
+          // Use simple hash function for better reliability
+          const contentHash = msg.message.trim().split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a;
+          }, 0).toString(36).slice(0, 8);
+          const deduplicationKey = `${msg.sender_id}-${contentHash}-${Math.floor(messageTime / 1000)}`; // 1 second window
           
           if (!seen.has(deduplicationKey)) {
             seen.add(deduplicationKey);
