@@ -469,7 +469,7 @@ export default function UsersDirectory() {
             disabled
             className="w-full mt-4 bg-green-500 cursor-not-allowed"
           >
-            <CheckCircle className="w-4 h-4 mr-2" />
+            <Check className="w-4 h-4 mr-2" />
             Meeting Accepted
           </Button>
         );

@@ -166,7 +166,7 @@ export default function VerifyOTP() {
           <CardHeader className="pb-8 pt-8">
             {/* Header with Logo */}
             <div className="flex items-center justify-center mb-8">
-              <img src="/main_logo.svg" alt="Unido Logo" className="w-80 h-auto" />
+              <img src="/main_logo.svg" alt="GC21 Logo" className="w-80 h-auto" />
             </div>
 
             {/* Welcome Section */}

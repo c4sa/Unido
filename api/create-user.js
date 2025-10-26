@@ -161,8 +161,8 @@ export default async function handler(req, res) {
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${baseUrl}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
-            <h1 style="color: #0064b0; margin: 0;">Welcome to Unido</h1>
+            <img src="${baseUrl}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+            <h1 style="color: #0064b0; margin: 0;">Welcome to GC21</h1>
             <p style="color: #666; margin: 10px 0 0 0;">Professional Networking Platform</p>
           </div>
           
@@ -195,9 +195,9 @@ export default async function handler(req, res) {
       const mailOptions = {
         from: smtpConfig.from,
         to: email,
-        subject: 'Welcome to Unido - Your Account Credentials',
+        subject: 'Welcome to GC21 - Your Account Credentials',
         html: html,
-        text: `Welcome to Unido!\n\nYour account has been created by an administrator.\n\nLogin Credentials:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nYou will be required to change your password on first login.\n\nLogin at: ${baseUrl}/login`
+        text: `Welcome to GC21!\n\nYour account has been created by an administrator.\n\nLogin Credentials:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nYou will be required to change your password on first login.\n\nLogin at: ${baseUrl}/login`
       };
 
       await transporter.sendMail(mailOptions);

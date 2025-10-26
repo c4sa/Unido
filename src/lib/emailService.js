@@ -95,8 +95,8 @@ export const emailService = {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <img src="${baseUrl}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
-          <h1 style="color: #0064b0; margin: 0;">Welcome to Unido</h1>
+          <img src="${baseUrl}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+          <h1 style="color: #0064b0; margin: 0;">Welcome to GC21</h1>
           <p style="color: #666; margin: 10px 0 0 0;">Professional Networking Platform</p>
         </div>
         
@@ -117,7 +117,7 @@ export const emailService = {
         <div style="text-align: center; margin: 30px 0;">
           <a href="${window.location.origin}/login" 
              style="display: inline-block; background: #0064b0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-            Login to Unido
+            Login to GC21
           </a>
         </div>
         
@@ -129,7 +129,7 @@ export const emailService = {
     `;
 
     const text = `
-Welcome to UNIConnect - Professional Networking Platform
+Welcome to GC21 - Professional Networking Platform
 
 Your account has been created successfully using your passcode.
 
@@ -148,7 +148,7 @@ If you did not request this account, please contact support.
     try {
       const result = await this.send({
         to: email,
-        subject: 'Welcome to Unido - Your Account Credentials',
+        subject: 'Welcome to GC21 - Your Account Credentials',
         html,
         text
       });
@@ -166,9 +166,9 @@ If you did not request this account, please contact support.
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <img src="${baseUrl}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+          <img src="${baseUrl}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
           <h1 style="color: #0064b0; margin: 0;">Password Updated Successfully</h1>
-          <p style="color: #666; margin: 10px 0 0 0;">Unido Security Notification</p>
+          <p style="color: #666; margin: 10px 0 0 0;">GC21 Security Notification</p>
         </div>
         
         <div style="background: #d4edda; padding: 20px; border-radius: 8px; border: 1px solid #c3e6cb; margin: 20px 0;">
@@ -195,7 +195,7 @@ If you did not request this account, please contact support.
     `;
 
     const text = `
-Password Updated Successfully - UNIConnect Security Notification
+Password Updated Successfully - GC21 Security Notification
 
 Your password has been updated successfully. Your account is now secure and ready to use.
 
@@ -210,7 +210,7 @@ This is a security notification. If you did not make this change, please contact
     try {
       const result = await this.send({
         to: email,
-        subject: 'Password Updated Successfully - Unido',
+        subject: 'Password Updated Successfully - GC21',
         html,
         text
       });
@@ -228,9 +228,9 @@ This is a security notification. If you did not make this change, please contact
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <img src="${baseUrl}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+          <img src="${baseUrl}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
           <h1 style="color: #0064b0; margin: 0;">Reset Your Password</h1>
-          <p style="color: #666; margin: 10px 0 0 0;">Unido Security Code</p>
+          <p style="color: #666; margin: 10px 0 0 0;">GC21 Security Code</p>
         </div>
         
         <div style="background: #f8f9fa; padding: 30px; border-radius: 8px; margin: 20px 0;">
@@ -254,14 +254,14 @@ This is a security notification. If you did not make this change, please contact
         
         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
           <p style="color: #999; font-size: 12px; margin: 0;">
-            This is an automated message from Unido. Please do not reply to this email.
+            This is an automated message from GC21. Please do not reply to this email.
           </p>
         </div>
       </div>
     `;
 
     const text = `
-Reset Your Password - UNIConnect
+Reset Your Password - GC21
 
 Your verification code: ${otpCode}
 
@@ -275,7 +275,7 @@ This is an automated message. Please do not reply.
     try {
       const result = await this.send({
         to: email,
-        subject: 'Reset Your Unido Password - Verification Code',
+        subject: 'Reset Your GC21 Password - Verification Code',
         html,
         text
       });
@@ -293,15 +293,15 @@ This is an automated message. Please do not reply.
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <img src="${baseUrl}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
-          <h1 style="color: #0064b0; margin: 0;">Welcome to Unido!</h1>
+          <img src="${baseUrl}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+          <h1 style="color: #0064b0; margin: 0;">Welcome to GC21!</h1>
           <p style="color: #666; margin: 10px 0 0 0;">Your Professional Networking Journey Begins</p>
         </div>
         
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h2 style="color: #333; margin: 0 0 15px 0;">🎉 Account Setup Complete!</h2>
           <p style="margin: 10px 0;">Hello ${fullName || 'there'},</p>
-          <p style="margin: 10px 0;">Congratulations! You have successfully completed your account setup and are now ready to explore Unido's professional networking features.</p>
+          <p style="margin: 10px 0;">Congratulations! You have successfully completed your account setup and are now ready to explore GC21's professional networking features.</p>
           
           <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #0064b0; margin: 15px 0;">
             <h3 style="margin: 0 0 10px 0; color: #0064b0;">What's Next?</h3>
@@ -327,18 +327,18 @@ This is an automated message. Please do not reply.
         </div>
         
         <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px; text-align: center; color: #666; font-size: 14px;">
-          <p style="margin: 5px 0;">Thank you for joining Unido - where professional connections flourish.</p>
+          <p style="margin: 5px 0;">Thank you for joining GC21 - where professional connections flourish.</p>
           <p style="margin: 5px 0;">If you have any questions, please don't hesitate to contact our support team.</p>
         </div>
       </div>
     `;
 
     const text = `
-Welcome to Unido - Your Professional Networking Journey Begins!
+Welcome to GC21 - Your Professional Networking Journey Begins!
 
 Hello ${fullName || 'there'},
 
-Congratulations! You have successfully completed your account setup and are now ready to explore Unido's professional networking features.
+Congratulations! You have successfully completed your account setup and are now ready to explore GC21's professional networking features.
 
 What's Next?
 - Complete your professional profile
@@ -350,14 +350,14 @@ What's Next?
 Access your dashboard: ${window.location.origin}/dashboard
 Complete your profile: ${window.location.origin}/profile
 
-Thank you for joining Unido - where professional connections flourish.
+Thank you for joining GC21 - where professional connections flourish.
 If you have any questions, please don't hesitate to contact our support team.
     `;
 
     try {
       const result = await this.send({
         to: email,
-        subject: '🎉 Welcome to Unido - Let\'s Get Started!',
+        subject: '🎉 Welcome to GC21 - Let\'s Get Started!',
         html,
         text
       });

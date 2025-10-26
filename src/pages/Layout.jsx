@@ -179,7 +179,7 @@ export default function Layout({ children, currentPageName }) {
           {/* Logo Section */}
           <div className="p-8 border-b border-gray-100">
             <div className="flex items-center justify-center">
-              <img src="/main_logo.svg" alt="Unido Logo" className="h-16 w-auto" />
+              <img src="/main_logo.svg" alt="GC21 Logo" className="h-16 w-auto" />
             </div>
           </div>
           

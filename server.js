@@ -270,9 +270,9 @@ app.post('/api/send-password-reset-otp', async (req, res) => {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <img src="${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+          <img src="${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
           <h1 style="color: #0064b0; margin: 0;">Reset Your Password</h1>
-          <p style="color: #666; margin: 10px 0 0 0;">Unido Security Code</p>
+          <p style="color: #666; margin: 10px 0 0 0;">GC21 Security Code</p>
         </div>
         
         <div style="background: #f8f9fa; padding: 30px; border-radius: 8px; margin: 20px 0;">
@@ -296,14 +296,14 @@ app.post('/api/send-password-reset-otp', async (req, res) => {
         
         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
           <p style="color: #999; font-size: 12px; margin: 0;">
-            This is an automated message from Unido. Please do not reply to this email.
+            This is an automated message from GC21. Please do not reply to this email.
           </p>
         </div>
       </div>
     `;
 
     const text = `
-Reset Your Password - UNIConnect
+Reset Your Password - GC21
 
 Your verification code: ${otpCode}
 
@@ -317,7 +317,7 @@ This is an automated message. Please do not reply.
     await transporter.sendMail({
       from: smtpConfig.from,
       to: email,
-      subject: 'Reset Your Unido Password - Verification Code',
+      subject: 'Reset Your GC21 Password - Verification Code',
       html,
       text
     });
@@ -497,8 +497,8 @@ app.post('/api/create-user', async (req, res) => {
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${process.env.VERCEL_URL || 'http://localhost:3000'}/main_logo.svg" alt="Unido Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
-            <h1 style="color: #0064b0; margin: 0;">Welcome to Unido</h1>
+            <img src="${process.env.VERCEL_URL || 'http://localhost:3000'}/main_logo.svg" alt="GC21 Logo" style="height: 60px; width: auto; margin-bottom: 15px;" />
+            <h1 style="color: #0064b0; margin: 0;">Welcome to GC21</h1>
             <p style="color: #666; margin: 10px 0 0 0;">Professional Networking Platform</p>
           </div>
           
@@ -531,9 +531,9 @@ app.post('/api/create-user', async (req, res) => {
       const mailOptions = {
         from: smtpConfig.from,
         to: email,
-        subject: 'Welcome to Unido - Your Account Credentials',
+        subject: 'Welcome to GC21 - Your Account Credentials',
         html: html,
-        text: `Welcome to Unido!\n\nYour account has been created by an administrator.\n\nLogin Credentials:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nYou will be required to change your password on first login.\n\nLogin at: ${process.env.VERCEL_URL || 'http://localhost:3000'}/login`
+        text: `Welcome to GC21!\n\nYour account has been created by an administrator.\n\nLogin Credentials:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nYou will be required to change your password on first login.\n\nLogin at: ${process.env.VERCEL_URL || 'http://localhost:3000'}/login`
       };
 
       await transporter.sendMail(mailOptions);
