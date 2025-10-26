@@ -20,7 +20,7 @@ const getBaseUrl = () => {
   
   // In production, use the deployed URL
   // You'll need to replace this with your actual Vercel URL
-  return 'https://your-app-name.vercel.app';
+  return 'https://unido-lu7i.vercel.app';
 };
 
 // Development fallback - simulate email sending
