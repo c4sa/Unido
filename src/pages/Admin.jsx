@@ -22,7 +22,9 @@ import {
   Globe,
   Edit,
   Plus,
-} from "lucide-react"; // Removed Mail, Send, Trash2, Upload, Download as they are no longer used
+  Download,
+  Upload,
+} from "lucide-react";
 import { format } from "date-fns";
 
 const REPRESENTATION_TYPES = [
@@ -49,6 +51,10 @@ export default function Admin() {
     role: 'user'
   });
   const [creating, setCreating] = useState(false);
+  const [isBulkCreateDialogOpen, setIsBulkCreateDialogOpen] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [processingBulk, setProcessingBulk] = useState(false);
+  const [bulkResults, setBulkResults] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -171,6 +177,116 @@ export default function Admin() {
     }
   };
 
+  const downloadTemplate = () => {
+    // Create CSV template
+    const csvContent = 'email,role\nuser1@example.com,user\nuser2@example.com,admin\nuser3@example.com,user';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'user-bulk-upload-template.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+        alert('Please upload a CSV file');
+        return;
+      }
+      setBulkFile(file);
+      setBulkResults(null);
+    }
+  };
+
+  const parseCSV = (text) => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      throw new Error('CSV file must have at least a header row and one data row');
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const emailIndex = headers.indexOf('email');
+    const roleIndex = headers.indexOf('role');
+
+    if (emailIndex === -1 || roleIndex === -1) {
+      throw new Error('CSV file must have "email" and "role" columns');
+    }
+
+    const users = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      if (values[emailIndex] && values[roleIndex]) {
+        users.push({
+          email: values[emailIndex],
+          role: values[roleIndex]
+        });
+      }
+    }
+
+    return users;
+  };
+
+  const handleBulkCreate = async () => {
+    if (!bulkFile) {
+      alert('Please select a CSV file');
+      return;
+    }
+
+    setProcessingBulk(true);
+    setBulkResults(null);
+
+    try {
+      // Read file
+      const text = await bulkFile.text();
+      const users = parseCSV(text);
+
+      if (users.length === 0) {
+        throw new Error('No valid users found in CSV file');
+      }
+
+      // Call backend API to create users
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:3000/api/bulk-create-users'
+        : '/api/bulk-create-users';
+        
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users })
+      });
+
+      // Check if response is HTML (404 page) instead of JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text();
+        console.error('Non-JSON response:', responseText);
+        throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}. Please ensure the development server is running on port 3000.`);
+      }
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create users');
+      }
+
+      setBulkResults(result);
+      
+      // Reload data to show new users
+      await loadData();
+      
+    } catch (error) {
+      console.error("Error creating bulk users:", error);
+      alert(error.message || 'Failed to create users. Please check the CSV format and try again.');
+    } finally {
+      setProcessingBulk(false);
+    }
+  };
+
   const getStatusColor = (delegate) => {
     if (!delegate.consent_given) return 'bg-red-100 text-red-800';
     if (!delegate.profile_completed) return 'bg-orange-100 text-orange-800';
@@ -289,13 +405,31 @@ export default function Admin() {
                 <CardTitle>User Management</CardTitle>
                 <p className="text-sm text-slate-600">View and manage all registered users</p>
               </div>
-              <Button
-                onClick={() => setIsCreateUserDialogOpen(true)}
-                className="flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Create User
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={downloadTemplate}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Template
+                </Button>
+                <Button
+                  onClick={() => setIsBulkCreateDialogOpen(true)}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  Create Bulk User
+                </Button>
+                <Button
+                  onClick={() => setIsCreateUserDialogOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create User
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -571,6 +705,101 @@ export default function Admin() {
                   </>
                 ) : (
                   'Create User'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Create User Dialog */}
+        <Dialog open={isBulkCreateDialogOpen} onOpenChange={setIsBulkCreateDialogOpen}>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create Bulk Users</DialogTitle>
+              <DialogDescription>
+                Upload a CSV file to create multiple users at once. Download the template to see the required format.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Alert className="border-blue-200 bg-blue-50">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  <strong>CSV Format:</strong> The file must have "email" and "role" columns. 
+                  Role must be either "user" or "admin". Download the template for an example.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="space-y-2">
+                <Label htmlFor="bulk-file">CSV File</Label>
+                <Input
+                  id="bulk-file"
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileChange}
+                  disabled={processingBulk}
+                />
+                {bulkFile && (
+                  <p className="text-sm text-slate-600">
+                    Selected: {bulkFile.name}
+                  </p>
+                )}
+              </div>
+
+              {bulkResults && (
+                <div className="space-y-2">
+                  <Alert className={bulkResults.failed > 0 ? "border-orange-200 bg-orange-50" : "border-green-200 bg-green-50"}>
+                    <AlertCircle className={`h-4 w-4 ${bulkResults.failed > 0 ? "text-orange-600" : "text-green-600"}`} />
+                    <AlertDescription className={bulkResults.failed > 0 ? "text-orange-800" : "text-green-800"}>
+                      <strong>Results:</strong> {bulkResults.created} users created successfully, {bulkResults.failed} failed out of {bulkResults.total} total.
+                    </AlertDescription>
+                  </Alert>
+                  
+                  {bulkResults.results.errors.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-semibold text-red-600 mb-2">Errors:</p>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {bulkResults.results.errors.map((error, idx) => (
+                          <p key={idx} className="text-xs text-red-600">
+                            {error.email}: {error.error}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={downloadTemplate}
+                disabled={processingBulk}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Template
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsBulkCreateDialogOpen(false);
+                  setBulkFile(null);
+                  setBulkResults(null);
+                }}
+                disabled={processingBulk}
+              >
+                {bulkResults ? 'Close' : 'Cancel'}
+              </Button>
+              <Button 
+                onClick={handleBulkCreate}
+                disabled={processingBulk || !bulkFile}
+              >
+                {processingBulk ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Processing...
+                  </>
+                ) : (
+                  'Create Users'
                 )}
               </Button>
             </DialogFooter>
