@@ -27,6 +27,12 @@ import Rooms from "./Rooms";
 import RoomDetail from "./RoomDetail";
 import PrivacyPolicy from "./PrivacyPolicy";
 
+import Events from "./Events";
+
+import Exhibitors from "./Exhibitors";
+
+import FloorMap from "./FloorMap";
+
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
@@ -51,6 +57,12 @@ const PAGES = {
     
     RoomDetail: RoomDetail,
     PrivacyPolicy: PrivacyPolicy,
+    
+    Events: Events,
+    
+    Exhibitors: Exhibitors,
+    
+    FloorMap: FloorMap,
     
 }
 
@@ -125,6 +137,12 @@ function PagesContent() {
                     <Route path="/Rooms" element={<Rooms />} />
                     
                     <Route path="/RoomDetail" element={<RoomDetail />} />
+                    
+                    <Route path="/events" element={<Events />} />
+                    
+                    <Route path="/exhibitors" element={<Exhibitors />} />
+                    
+                    <Route path="/floormap" element={<FloorMap />} />
                     
                 </Routes>
             </Layout>

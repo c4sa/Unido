@@ -832,6 +832,62 @@ class PasscodeEntity extends SupabaseEntity {
 }
 
 /**
+ * Event Entity
+ * Handles events management
+ */
+class EventEntity extends SupabaseEntity {
+  constructor() {
+    super('events');
+  }
+
+  /**
+   * Toggle bookmark for an event
+   */
+  async toggleBookmark(eventId, userId) {
+    try {
+      // Get current event
+      const event = await this.get(eventId);
+      const bookmarkedBy = event.bookmarked_by || [];
+      
+      // Check if already bookmarked
+      const isBookmarked = bookmarkedBy.includes(userId);
+      
+      let updatedBookmarks;
+      if (isBookmarked) {
+        // Remove bookmark
+        updatedBookmarks = bookmarkedBy.filter(id => id !== userId);
+      } else {
+        // Add bookmark
+        updatedBookmarks = [...bookmarkedBy, userId];
+      }
+      
+      // Update event
+      return await this.update(eventId, { bookmarked_by: updatedBookmarks });
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if event is bookmarked by user
+   */
+  isBookmarked(event, userId) {
+    return event.bookmarked_by && event.bookmarked_by.includes(userId);
+  }
+}
+
+/**
+ * Exhibitor Entity
+ * Handles exhibitors management
+ */
+class ExhibitorEntity extends SupabaseEntity {
+  constructor() {
+    super('exhibitors');
+  }
+}
+
+/**
  * Connection Entity
  * Handles delegate connection requests and relationships
  */
@@ -962,6 +1018,8 @@ export const Notification = new NotificationEntity();
 export const VenueRoom = new VenueRoomEntity();
 export const Passcode = new PasscodeEntity();
 export const Connection = new ConnectionEntity();
+export const Event = new EventEntity();
+export const Exhibitor = new ExhibitorEntity();
 
 // Export supabase client for direct access when needed
 export { supabase };

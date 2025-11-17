@@ -15,7 +15,10 @@ import {
   LogOut,
   CalendarDays,
   Menu,
-  Building
+  Building,
+  Store,
+  Ticket,
+  Map
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -54,6 +57,21 @@ const navigationItems = [
     title: "Chat",
     url: createPageUrl("Chat"),
     icon: MessageSquare,
+  },
+  {
+    title: "Events",
+    url: createPageUrl("Events"),
+    icon: Ticket,
+  },
+  {
+    title: "Exhibitors",
+    url: createPageUrl("Exhibitors"),
+    icon: Store,
+  },
+  {
+    title: "Floor Map",
+    url: createPageUrl("FloorMap"),
+    icon: Map,
   },
   {
     title: "Admin Settings",
